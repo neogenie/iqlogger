@@ -48,7 +48,6 @@ RUN apt-get update && apt-get install build-essential software-properties-common
     libjemalloc-dev \
     libssl-dev \
     pkg-config \
-    libv8-dev \
     ruby \
     ruby-dev \
     rubygems \
@@ -125,6 +124,22 @@ RUN cd ${BUILD_DIR} && \
     make && \
     make test && \
     make install
+
+#v8
+RUN cd ${BUILD_DIR} && \
+    git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git && \
+    export PATH=$PATH:${BUILD_DIR}/depot_tools && \
+    git clone git://github.com/ninja-build/ninja.git && cd ninja && \
+    git checkout release && \
+    ./configure.py --bootstrap && \
+    cp ninja /usr/sbin/ && \
+    cd .. && \
+    fetch v8 && \
+    cd v8 && \
+    tools/dev/v8gen.py -vv x64.release.sample && \
+    ninja -C out.gn/x64.release.sample v8_monolith && \
+    cp out.gn/x64.release.sample/obj/*.a /usr/lib/ && \
+    cp -r include/* /usr/include/
 
 RUN rm -rf ${BUILD_DIR}
 
