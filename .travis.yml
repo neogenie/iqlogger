@@ -5,14 +5,14 @@ language: shell
 services:
   - docker
 
+env:
+  - TAG=ubuntu16
+  - TAG=ubuntu18
+
 jobs:
   include:
-    - env:
-        - TAG=ubuntu16
-    - env:
-        - TAG=ubuntu18
-
-script:
-  - docker build -t builder --build-arg TAG=$TAG -f .build/Dockerfile .
-  - docker run --rm builder -v ${TRAVIS_BUILD_DIR}/build:/iqlogger
-  - ls -alh ${TRAVIS_BUILD_DIR}/build
+    - stage: build
+      script:
+        - docker build -t builder --build-arg TAG=$TAG -f .build/Dockerfile .
+        - docker run --rm builder -v ${TRAVIS_BUILD_DIR}/build:/iqlogger
+        - ls -alh ${TRAVIS_BUILD_DIR}/build
