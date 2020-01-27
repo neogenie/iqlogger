@@ -5,9 +5,9 @@ FROM neogenie/iqlogger_builder:$TAG
 ARG TAG
 
 ADD . /iqlogger
+WORKDIR iqlogger
 
-RUN /iqlogger/.build/build-${TAG}.sh
-
+RUN .build/build-${TAG}.sh
 WORKDIR iqlogger
 
 #ENTRYPOINT /bin/bash
