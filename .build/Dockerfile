@@ -9,9 +9,4 @@ WORKDIR iqlogger
 
 RUN .build/build-${TAG}.sh
 
-RUN mkdir -p build
-RUN cp iqlogger build/
-
-WORKDIR build
-
 #ENTRYPOINT /bin/bash
