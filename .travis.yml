@@ -14,5 +14,5 @@ jobs:
 
 script:
   - docker build -t builder --build-arg TAG=$TAG -f .build/Dockerfile .
-  - docker run --rm -v ${TRAVIS_BUILD_DIR}/build:/iqlogger builder
+  - docker run --rm -v ${TRAVIS_BUILD_DIR}:/iqlogger/build builder
   - ls -alh ${TRAVIS_BUILD_DIR}/build

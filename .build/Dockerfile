@@ -8,6 +8,10 @@ ADD . /iqlogger
 WORKDIR iqlogger
 
 RUN .build/build-${TAG}.sh
-WORKDIR iqlogger
+
+RUN mkdir -p build
+RUN cp iqlogger build/
+
+WORKDIR build
 
 #ENTRYPOINT /bin/bash
