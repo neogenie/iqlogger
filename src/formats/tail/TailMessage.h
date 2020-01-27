@@ -12,11 +12,10 @@
 
 #include <sstream>
 
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
-
 #include "Exception.h"
 #include "formats/MessageInterface.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
 
 namespace iqlogger::formats::tail {
 
@@ -52,13 +51,13 @@ public:
 
   TailMessage(TailMessage&&) noexcept = default;
 
-  std::string exportMessage() const override { return m_data; }
+  [[nodiscard]] std::string exportMessage() const override { return m_data; }
 
-  std::string getFilename() const { return m_filename; }
+  [[nodiscard]] std::string getFilename() const { return m_filename; }
 
-  std::string getSource() const { return m_filename; }
+  [[nodiscard]] std::string getSource() const { return m_filename; }
 
-  std::string exportMessage2Json() const override {
+  [[nodiscard]] std::string exportMessage2Json() const override {
     rapidjson::StringBuffer s;
     rapidjson::Writer<rapidjson::StringBuffer> writer(s);
 

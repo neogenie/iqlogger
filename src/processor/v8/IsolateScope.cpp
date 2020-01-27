@@ -85,16 +85,35 @@ UniqueMessagePtr IsolateScope::process(ProcessorRecordPtr processorRecordPtr) {
   const auto& message = processorRecordPtr->first;
   const auto& scriptIndex = processorRecordPtr->second;
 
+  DEBUG("Process message " << processorRecordPtr.get() << " with script index " << scriptIndex);
+
   if (scriptIndex > m_functions.size()) {
     throw ProcessorException("Error script index");
   }
 
+  TRACE("IsolateScope make jsObject");
+
   auto jsObject = makeJsObject(message);
 
-  v8::Local<v8::Value> args[] = {jsObject};
-  v8::Local<v8::Value> result;
+  TRACE("IsolateScope make jsObject - ok");
 
-  if (!m_functions[scriptIndex]->Call(m_context, m_context->Global(), 1, args).ToLocal(&result)) {
+  v8::Local<v8::Value> args[] = {jsObject};
+  v8::Local<v8::Value> result = {};
+
+  TRACE("IsolateScope Call function");
+
+  v8::MaybeLocal<v8::Value> ret =
+      m_functions[scriptIndex]->Call(m_context, m_context->Global(), 1, args).ToLocalChecked();
+
+  if (m_try_catch.HasCaught()) {
+    processException("JavaScript Error: ");
+  }
+
+  TRACE("IsolateScope Result: " << !ret.IsEmpty());
+
+  UniqueMessagePtr resultMessage;
+
+  if(!ret.ToLocal(&result)) {
     if (m_try_catch.HasCaught()) {
       processException("JavaScript Error: ");
     } else {
@@ -102,29 +121,22 @@ UniqueMessagePtr IsolateScope::process(ProcessorRecordPtr processorRecordPtr) {
     }
   }
 
-  UniqueMessagePtr resultMessage;
-
   if (result->IsBoolean() && result->IsFalse()) {
     DEBUG("Processor return false value, ignoring...");
     resultMessage = nullptr;
-  } else if (result->IsString()) {
-    v8::String::Utf8Value str(m_isolate, result->ToString(m_context).ToLocalChecked());
-    resultMessage = makeMessageObject(*str);
   } else if (result->IsObject()) {
-    v8::Local<v8::Value> newJsonString;
+    v8::Local<v8::String> newJsonString;
     if (!v8::JSON::Stringify(m_context, result).ToLocal(&newJsonString)) {
       if (m_try_catch.HasCaught()) {
         processException("JavaScript Error: ");
       } else {
         throw ProcessorException("Something strange...");
       }
-    } else if (!newJsonString->IsString()) {
-      std::stringstream oss;
-      v8::String::Utf8Value utf8(m_isolate, newJsonString);
-      oss << "Result from processor script: " << *utf8 << " is not a string!";
-      throw ProcessorException(oss.str());
     }
     v8::String::Utf8Value str(m_isolate, newJsonString);
+    resultMessage = makeMessageObject(*str);
+  } else if (result->IsString()) {
+    v8::String::Utf8Value str(m_isolate, result->ToString(m_context).ToLocalChecked());
     resultMessage = makeMessageObject(*str);
   } else {
     std::stringstream oss;
@@ -198,6 +210,7 @@ v8::Local<v8::Object> IsolateScope::makeJsObject(const UniqueMessagePtr& message
 }
 
 UniqueMessagePtr IsolateScope::makeMessageObject(std::string&& message) {
+  TRACE("IsolateScope Make Message Object from: " << message);
   auto processorMessage = ProcessorMessage(std::move(message));
   return std::make_unique<Message>(std::move(processorMessage));
 }

@@ -19,19 +19,15 @@ void ConsoleWrapper::log(const v8::FunctionCallbackInfo<v8::Value>& args) {
   for(int i = 0; i < args.Length(); ++i) {
     if(args[i]->IsObject() || args[i]->IsArray()) {
 
-      v8::Local<v8::Value> strObject;
+      v8::Local<v8::String> strObject;
 
       if (!v8::JSON::Stringify(args.GetIsolate()->GetCurrentContext(), args[i]).ToLocal(&strObject)) {
         std::stringstream oss;
         v8::String::Utf8Value str(args.GetIsolate(), args[i]);
         oss << "Error sringify object: " << *str;
         throw ProcessorException(oss.str());
-      } else if (!strObject->IsString()) {
-        std::stringstream oss;
-        v8::String::Utf8Value str(args.GetIsolate(), strObject);
-        oss << "Error sringify object: " << *str;
-        throw ProcessorException(oss.str());
       }
+
       v8::String::Utf8Value str(args.GetIsolate(), strObject);
       Console::getInstance()->log(*str);
     } else {
