@@ -2,7 +2,7 @@ ARG TAG=ubuntu18
 
 FROM neogenie/iqlogger_builder:$TAG
 
-ENV TAG=$TAG
+ARG TAG
 
 ADD . /iqlogger
 WORKDIR iqlogger
