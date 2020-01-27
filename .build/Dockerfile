@@ -6,7 +6,7 @@ ARG TAG
 
 ADD . /iqlogger
 
-RUN .build/build-${TAG}.sh
+RUN /iqlogger/.build/build-${TAG}.sh
 
 WORKDIR iqlogger
 
