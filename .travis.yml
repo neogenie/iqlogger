@@ -25,3 +25,20 @@ script:
   - docker cp builder:/iqlogger/.build_deb/${TAG}/iqlogger_$VERSION-$UBUNTU_$ARCH.deb ${TRAVIS_BUILD_DIR}/build/
   - docker rm builder
   - ls -alh ${TRAVIS_BUILD_DIR}/build
+  - if [[ "$TAG" == "ubuntu18" ]]; then
+    echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin;
+    cp ${TRAVIS_BUILD_DIR}/build/iqlogger .docker/usr/local/bin/;
+    docker build -t neogenie/iqlogger:$VERSION .;
+    docker push neogenie/iqlogger:$VERSION;
+    docker tag neogenie/iqlogger:$VERSION neogenie/iqlogger:latest;
+    docker push neogenie/iqlogger:latest;
+  fi
+
+deploy:
+  provider: releases
+  api_key: "$GITHUB_TOKEN"
+  file_glob: true
+  file: ${TRAVIS_BUILD_DIR}/build/*.deb
+  skip_cleanup: true
+  on:
+    tags: true
