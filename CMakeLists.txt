@@ -42,7 +42,7 @@ endif ()
 message("Build id: ${BUILD_ID}")
 
 if (DEFINED ENV{CI_COMMIT_REF_NAME})
-    set(BUILD_COMMIT "$ENV{CI_COMMIT_REF_NAME} ($ENV{CI_COMMIT_SHA})")
+    set(BUILD_COMMIT "$ENV{CI_COMMIT_SHA} ($ENV{CI_COMMIT_MESSAGE})")
     set(GIT_VERSION "$ENV{CI_COMMIT_REF_NAME}")
 else ()
     set(BUILD_COMMIT "undefined (undefined)")
