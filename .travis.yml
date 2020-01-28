@@ -22,7 +22,7 @@ script:
   - docker create --name builder builder
   - mkdir -p ${TRAVIS_BUILD_DIR}/build
   - docker cp builder:/iqlogger/iqlogger ${TRAVIS_BUILD_DIR}/build/
-  - docker cp builder:/iqlogger/.build_deb/${TAG}/iqlogger_$VERSION-$UBUNTU_$ARCH.deb ${TRAVIS_BUILD_DIR}/build/
+  - docker cp builder:/iqlogger/.build_deb/${TAG}/iqlogger_$VERSION-${UBUNTU}_$ARCH.deb ${TRAVIS_BUILD_DIR}/build/
   - docker rm builder
   - ls -alh ${TRAVIS_BUILD_DIR}/build
   - if [[ "$TAG" == "ubuntu18" ]]; then
