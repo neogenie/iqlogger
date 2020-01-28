@@ -34,16 +34,16 @@ configure_file (
         "${PROJECT_BINARY_DIR}/src/Version.h"
 )
 
-if (DEFINED ENV{CI_PIPELINE_ID})
-    set(BUILD_ID "$ENV{CI_PIPELINE_ID}")
+if (DEFINED ENV{TRAVIS_BUILD_NUMBER})
+    set(BUILD_ID "$ENV{TRAVIS_BUILD_NUMBER}")
 else ()
     set(BUILD_ID "undefined")
 endif ()
 message("Build id: ${BUILD_ID}")
 
-if (DEFINED ENV{CI_COMMIT_REF_NAME})
-    set(BUILD_COMMIT "$ENV{CI_COMMIT_REF_NAME} ($ENV{CI_COMMIT_SHA})")
-    set(GIT_VERSION "$ENV{CI_COMMIT_REF_NAME}")
+if (DEFINED ENV{TRAVIS_BRANCH})
+    set(BUILD_COMMIT "$ENV{TRAVIS_COMMIT} ($ENV{TRAVIS_COMMIT_MESSAGE})")
+    set(GIT_VERSION "$ENV{TRAVIS_BRANCH}")
 else ()
     set(BUILD_COMMIT "undefined (undefined)")
     execute_process(
@@ -58,15 +58,14 @@ message("Git version: ${GIT_VERSION}")
 
 string(TIMESTAMP BUILD_DATE_TIME "%Y-%m-%d %H:%M:%S UTC" UTC)
 
-if (DEFINED ENV{GITLAB_USER_EMAIL})
-    set(BUILD_USER "$ENV{GITLAB_USER_EMAIL}")
+if (DEFINED ENV{USER})
+    set(BUILD_USER "$ENV{USER}")
 else ()
     set(BUILD_USER "undefined")
 endif ()
 
 message("Build date: ${BUILD_DATE_TIME}")
 message("Build user: ${BUILD_USER}")
-
 
 configure_file (
         "${PROJECT_SOURCE_DIR}/src/config/Config.h.in"
