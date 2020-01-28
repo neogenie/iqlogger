@@ -17,5 +17,6 @@ script:
   - docker create --name builder builder
   - mkdir -p ${TRAVIS_BUILD_DIR}/build
   - docker cp builder:/iqlogger/iqlogger ${TRAVIS_BUILD_DIR}/build/
+  - docker cp builder:/iqlogger/.build_deb/${TAG}/*.deb ${TRAVIS_BUILD_DIR}/build/
   - docker rm builder
   - ls -alh ${TRAVIS_BUILD_DIR}/build

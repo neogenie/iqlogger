@@ -9,4 +9,6 @@ WORKDIR iqlogger
 
 RUN .build/build-${TAG}.sh
 
-#ENTRYPOINT /bin/bash
+RUN cp iqlogger .build_deb/${TAG}/usr/local/bin/
+RUN bash .build_deb/create-${TAG}.sh
+
