@@ -13,7 +13,7 @@ jobs:
         - TAG=ubuntu18
 
 script:
-  - docker build -t builder --build-arg TAG=$TAG -f .build/Dockerfile .
+  - docker build -t builder --build-arg TAG=$TAG --build-arg TRAVIS_BUILD_NUMBER=$TRAVIS_BUILD_NUMBER --build-arg TRAVIS_BRANCH=$TRAVIS_BRANCH --build-arg TRAVIS_COMMIT=$TRAVIS_COMMIT --build-arg TRAVIS_COMMIT_MESSAGE=$TRAVIS_COMMIT_MESSAGE --build-arg USER=$USER -f .build/Dockerfile .
   - docker create --name builder builder
   - mkdir -p ${TRAVIS_BUILD_DIR}/build
   - docker cp builder:/iqlogger/iqlogger ${TRAVIS_BUILD_DIR}/build/
