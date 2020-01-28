@@ -28,7 +28,7 @@ script:
   - if [[ "$TAG" == "ubuntu18" ]]; then
       echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin;
       cp ${TRAVIS_BUILD_DIR}/build/iqlogger .docker/usr/local/bin/;
-      docker build -t neogenie/iqlogger:$VERSION .;
+      docker build -t neogenie/iqlogger:$VERSION .docker;
       docker push neogenie/iqlogger:$VERSION;
       docker tag neogenie/iqlogger:$VERSION neogenie/iqlogger:latest;
       docker push neogenie/iqlogger:latest;
@@ -40,5 +40,6 @@ deploy:
   file_glob: true
   file: ${TRAVIS_BUILD_DIR}/build/*.deb
   skip_cleanup: true
-  on:
-    tags: true
+  draft: true
+#  on:
+#    tags: true
