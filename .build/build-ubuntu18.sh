@@ -1,7 +1,5 @@
 #!/bin/bash
 
-VERSION=`cat version`
-
 cmake .
 
 CNT=$(which nproc > /dev/null && expr $(nproc --all) / 2 || echo 4)

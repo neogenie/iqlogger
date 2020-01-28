@@ -1,7 +1,5 @@
 #!/bin/bash
 
-VERSION=`cat version`
-
 export IQLOGGER_STATIC_GLIBC=1
 cmake .
 
