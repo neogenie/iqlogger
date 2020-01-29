@@ -70,7 +70,7 @@ Record<Gelf>::Record(const iqlogger::inputs::journal::Journal::MessageT& message
   // @TODO
   const auto& data = message.getData();
 
-  Gelf::MessageT gelf;
+  Gelf::MessageT gelf(message.getInput());
 
   try {
     std::visit([&gelf](const auto& value) { gelf.setField("short_message", value); TRACE("MESSAGE=" << value);  }, data.at("MESSAGE"));
