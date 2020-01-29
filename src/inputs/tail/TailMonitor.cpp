@@ -7,6 +7,7 @@
 //
 
 #include "TailMonitor.h"
+
 #include "SavePositionServer.h"
 #include "core/Log.h"
 
@@ -155,10 +156,11 @@ void TailMonitor::flush() {
   }
 }
 
-TailMonitor::PointersTableInternalRecord::PointersTableInternalRecord(const std::string& file,
+TailMonitor::PointersTableInternalRecord::PointersTableInternalRecord(std::string name, const std::string& file,
                                                                       DelimiterRegex startmsg_regex,
                                                                       RecordQueuePtr<Tail> queuePtr, bool followOnly,
                                                                       bool saveState) :
+    m_name(std::move(name)),
     m_fileName(file),
     m_fileDescriptor(boost::iostreams::file_descriptor_source(m_fileName)),
     m_fileStream(m_fileDescriptor),
@@ -178,7 +180,7 @@ TailMonitor::PointersTableInternalRecord::PointersTableInternalRecord(const std:
 }
 
 TailMonitor::PointersTableInternalRecordPtr TailMonitor::createRecord(const std::string& filename) const {
-  return std::make_unique<PointersTableInternalRecord>(filename, m_startMsgRegEx, m_queuePtr, m_followOnly,
+  return std::make_unique<PointersTableInternalRecord>(m_name, filename, m_startMsgRegEx, m_queuePtr, m_followOnly,
                                                        m_saveState);
 }
 
@@ -316,7 +318,7 @@ void TailMonitor::PointersTableInternalRecord::processMessage(std::string_view b
   TRACE("Got tail message: " << buffer);
 
   try {
-    if (!m_queuePtr->enqueue(std::make_unique<Record<Tail>>(std::string(buffer), m_fileName))) {
+    if (!m_queuePtr->enqueue(std::make_unique<Record<Tail>>(m_name, std::string(buffer), m_fileName))) {
       ERROR("Journal Input queue is full... Dropping...");
     }
   } catch (const Exception& e) {

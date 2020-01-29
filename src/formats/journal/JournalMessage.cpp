@@ -31,6 +31,10 @@ std::string JournalMessage::exportMessage2Json() const {
 
   writer.Key("timestamp");
   writer.Int64(m_timestamp);
+
+  writer.Key("input");
+  writer.String(getInput());
+
   writer.EndObject();
   return s.GetString();
 }

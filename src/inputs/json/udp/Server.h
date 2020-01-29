@@ -9,6 +9,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+
 #include <array>
 #include <inputs/Input.h>
 #include <iostream>
@@ -35,7 +36,9 @@ class Server
   public:
     using pointer = std::shared_ptr<udp_session>;
 
-    static pointer create(RecordQueuePtr<Json> queuePtr) { return pointer(new udp_session(queuePtr)); }
+    static pointer create(std::string name, RecordQueuePtr<Json> queuePtr) {
+      return std::make_shared<udp_session>(std::move(name), queuePtr);
+    }
 
     buffer_t& buffer() { return m_buffer; }
 
@@ -43,21 +46,25 @@ class Server
 
     void process(const boost::system::error_code& error, std::size_t bytes_transferred);
 
-  private:
-    udp_session(RecordQueuePtr<Json> queuePtr) : m_queuePtr(queuePtr) {}
+    udp_session(std::string name, RecordQueuePtr<Json> queuePtr) : m_name(std::move(name)), m_queuePtr(queuePtr) {}
 
+  private:
+    std::string m_name;
     buffer_t m_buffer;
     RecordQueuePtr<Json> m_queuePtr;
     udp::endpoint m_remote_endpoint;
   };
 
 private:
+  std::string m_name;
   udp::socket m_socket;
   boost::asio::io_service::strand m_strand;
   RecordQueuePtr<Json> m_queuePtr;
 
 public:
-  explicit Server(RecordQueuePtr<Json> queuePtr, boost::asio::io_service& io_service, unsigned short port) :
+  explicit Server(std::string name, RecordQueuePtr<Json> queuePtr, boost::asio::io_service& io_service,
+                  unsigned short port) :
+      m_name(std::move(name)),
       m_socket(io_service, udp::endpoint(udp::v4(), port)),
       m_strand(io_service),
       m_queuePtr(queuePtr) {
@@ -67,7 +74,7 @@ public:
   void do_receive() {
     TRACE("do_receive()");
 
-    udp_session::pointer new_session = udp_session::create(m_queuePtr);
+    udp_session::pointer new_session = udp_session::create(m_name, m_queuePtr);
 
     auto handler = [this, new_session](const boost::system::error_code& error, std::size_t bytes_transferred) {
       handle_receive(new_session, error, bytes_transferred);

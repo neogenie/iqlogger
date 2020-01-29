@@ -32,19 +32,21 @@ class Server
   public:
     using pointer = std::shared_ptr<tcp_connection>;
 
-    static pointer create(boost::asio::io_service &io_service, RecordQueuePtr<Json> queuePtr) {
-      return pointer(new tcp_connection(io_service, queuePtr));
+    static pointer create(std::string name, boost::asio::io_service &io_service, RecordQueuePtr<Json> queuePtr) {
+      return std::make_shared<tcp_connection>(std::move(name), io_service, queuePtr);
     }
 
     tcp::socket &socket() { return m_socket; }
 
     void start() { do_read(); }
 
-  private:
-    tcp_connection(boost::asio::io_service &io_service, RecordQueuePtr<Json> queuePtr) :
+    tcp_connection(std::string name, boost::asio::io_service &io_service, RecordQueuePtr<Json> queuePtr) :
+        m_name(std::move(name)),
         m_strand(io_service),
         m_socket(io_service),
         m_queuePtr(queuePtr) {}
+
+  private:
 
     void do_read() {
       auto handler = [self = shared_from_this()](const boost::system::error_code &err, size_t bytes_transferred) {
@@ -61,7 +63,7 @@ class Server
                        << "` EC: " << ec.message());
 
       try {
-        if (!m_queuePtr->enqueue(std::make_unique<Record<Json>>(std::move(buff), m_socket.remote_endpoint()))) {
+        if (!m_queuePtr->enqueue(std::make_unique<Record<Json>>(m_name, std::move(buff), m_socket.remote_endpoint()))) {
           ERROR("Json TCP Input queue is full... Dropping...");
         }
       } catch (JsonException &e) {
@@ -84,6 +86,7 @@ class Server
       }
     }
 
+    std::string m_name;
     boost::asio::io_service::strand m_strand;
     boost::asio::streambuf m_buffer;
     tcp::socket m_socket;
@@ -91,7 +94,8 @@ class Server
   };
 
 public:
-  explicit Server(RecordQueuePtr<Json> queuePtr, boost::asio::io_service &io_service, short port) :
+  explicit Server(std::string name, RecordQueuePtr<Json> queuePtr, boost::asio::io_service &io_service, short port) :
+      m_name(std::move(name)),
       m_io_service(io_service),
       m_acceptor(io_service, tcp::endpoint(tcp::v4(), port)),
       m_queuePtr(queuePtr) {
@@ -103,7 +107,7 @@ public:
 
 private:
   void start_accept() {
-    tcp_connection::pointer new_connection = tcp_connection::create(m_io_service, m_queuePtr);
+    tcp_connection::pointer new_connection = tcp_connection::create(m_name, m_io_service, m_queuePtr);
 
     auto handler = [this, new_connection](const boost::system::error_code &error) {
       handle_accept(new_connection, error);
@@ -124,6 +128,7 @@ private:
     start_accept();
   }
 
+  std::string m_name;
   boost::asio::io_service &m_io_service;
   tcp::acceptor m_acceptor;
   RecordQueuePtr<Json> m_queuePtr;

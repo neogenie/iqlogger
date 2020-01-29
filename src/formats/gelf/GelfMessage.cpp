@@ -136,7 +136,7 @@ GelfMessage::gelf::gelf(std::string_view message) {
   }
 }
 
-GelfMessage::GelfMessage() : m_gelf() {
+GelfMessage::GelfMessage(std::string input) : Message(std::move(input)),  m_gelf() {
   TRACE("GelfMessage::GelfMessage()");
 }
 
@@ -198,5 +198,25 @@ std::string GelfMessage::gelf::dump() const {
   }
 
   writer.EndObject();
+  return s.GetString();
+}
+
+std::string GelfMessage::exportMessage2Json() const {
+
+  rapidjson::StringBuffer s;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(s);
+
+  auto gelf = m_gelf.dump();
+
+  writer.StartObject();
+
+  writer.Key("input");
+  writer.String(getInput());
+
+  writer.Key("data");
+  writer.RawValue(gelf.c_str(), gelf.length(), rapidjson::Type::kNullType);
+
+  writer.EndObject();
+
   return s.GetString();
 }

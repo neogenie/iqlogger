@@ -34,7 +34,7 @@ void Server::udp_session::process(const boost::system::error_code& error, std::s
         ERROR("Chunk queue is full... Dropping...");
       }
     } else {
-      if (!m_queuePtr->enqueue(std::make_unique<Record<Gelf>>(std::move(buff), m_remote_endpoint))) {
+      if (!m_queuePtr->enqueue(std::make_unique<Record<Gelf>>(m_name, std::move(buff), m_remote_endpoint))) {
         ERROR("Gelf UDP Input queue is full... Dropping...");
       }
     }

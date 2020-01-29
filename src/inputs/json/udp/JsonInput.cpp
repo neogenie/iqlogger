@@ -7,6 +7,7 @@
 //
 
 #include "JsonInput.h"
+
 #include <metrics/MetricsController.h>
 
 using namespace iqlogger::inputs::json::udp;
@@ -23,7 +24,7 @@ JsonInput::JsonInput(const config::SourceConfig& sourceConfig) : IOInput::IOInpu
 
   INFO("Register metrics");
 
-  m_serverPtr = std::make_shared<Server>(m_inputQueuePtr, m_io_service, m_port);
+  m_serverPtr = std::make_shared<Server>(m_name, m_inputQueuePtr, m_io_service, m_port);
 }
 
 void JsonInput::startImpl() {

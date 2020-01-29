@@ -10,13 +10,15 @@
 
 #include <string>
 
+#include "formats/dummy/DummyMessage.h"
+
 namespace iqlogger::inputs::dummy {
 
 class Dummy
 {
 public:
   using RecordDataT = std::string;
-  using MessageT = RecordDataT;
+  using MessageT = formats::dummy::DummyMessage;
   using SourceT = void;
 };
 }  // namespace iqlogger::inputs::dummy

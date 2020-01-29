@@ -105,7 +105,7 @@ template<>
 Record<Gelf>::Record(const iqlogger::inputs::tail::Tail::MessageT& message) {
   TRACE("outputs::Record::Record() [<Gelf>] (Tail)");
 
-  Gelf::MessageT gelf;
+  Gelf::MessageT gelf(message.getInput());
 
   auto messageStr = message.exportMessage();
 
@@ -116,7 +116,7 @@ Record<Gelf>::Record(const iqlogger::inputs::tail::Tail::MessageT& message) {
 
     if (!json.count("data")) {
       // Пытаемся собрать GELF из JSON как есть
-      Gelf::MessageT g(messageStr);
+      Gelf::MessageT g(message.getInput(), messageStr);
       g.setField("file", message.getFilename());
       m_data = g.exportMessage();
       return;
@@ -163,7 +163,7 @@ Record<Gelf>::Record(const iqlogger::inputs::json::Json::MessageT& message) {
   TRACE("outputs::Record::Record() [<Gelf>] (Json)");
   DEBUG("Transform Json -> Gelf: ");
 
-  Gelf::MessageT gelf;
+  Gelf::MessageT gelf(message.getInput());
 
   for (auto it = message.jbegin(); it != message.jend(); ++it) {
     // @TODO Перенести логику в setField()
@@ -183,8 +183,8 @@ template<>
 Record<Gelf>::Record(const iqlogger::inputs::dummy::Dummy::MessageT& message) {
   TRACE("outputs::Record::Record() [<Gelf>] (Dummy)");
   DEBUG("Transform Dummy -> Gelf: ");
-  Gelf::MessageT gelf;
-  gelf.setField("short_message", message);
+  Gelf::MessageT gelf(message.getInput());
+  gelf.setField("short_message", message.exportMessage());
   m_data = gelf.exportMessage();
 }
 #endif

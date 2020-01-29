@@ -9,6 +9,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+
 #include <array>
 #include <inputs/Input.h>
 #include <iostream>
@@ -36,8 +37,8 @@ class Server
   public:
     using pointer = std::shared_ptr<udp_session>;
 
-    static pointer create(RecordQueuePtr<Gelf> queuePtr, ChunkQueuePtr chunkQueuePtr) {
-      return pointer(new udp_session(queuePtr, chunkQueuePtr));
+    static pointer create(std::string name, RecordQueuePtr<Gelf> queuePtr, ChunkQueuePtr chunkQueuePtr) {
+      return std::make_shared<udp_session>(std::move(name), queuePtr, chunkQueuePtr);
     }
 
     buffer_t& buffer() { return m_buffer; }
@@ -46,11 +47,11 @@ class Server
 
     void process(const boost::system::error_code& error, std::size_t bytes_transferred);
 
-  private:
-    udp_session(RecordQueuePtr<Gelf> queuePtr, ChunkQueuePtr chunkQueuePtr) :
-        m_queuePtr(queuePtr),
-        m_chunkQueuePtr(chunkQueuePtr) {}
+    udp_session(std::string name, RecordQueuePtr<Gelf> queuePtr, ChunkQueuePtr chunkQueuePtr) :
+        m_name(std::move(name)), m_queuePtr(queuePtr), m_chunkQueuePtr(chunkQueuePtr) {}
 
+  private:
+    std::string m_name;
     buffer_t m_buffer;
     RecordQueuePtr<Gelf> m_queuePtr;
     ChunkQueuePtr m_chunkQueuePtr;
@@ -58,16 +59,16 @@ class Server
   };
 
 private:
+  std::string m_name;
   udp::socket m_socket;
-
   boost::asio::io_service::strand m_strand;
-
   RecordQueuePtr<Gelf> m_queuePtr;
   ChunkQueuePtr m_chunkQueuePtr;
 
 public:
-  explicit Server(RecordQueuePtr<Gelf> queuePtr, ChunkQueuePtr chunkQueuePtr, boost::asio::io_service& io_service,
-                  unsigned short port) :
+  explicit Server(std::string name, RecordQueuePtr<Gelf> queuePtr, ChunkQueuePtr chunkQueuePtr,
+                  boost::asio::io_service& io_service, unsigned short port) :
+      m_name(std::move(name)),
       m_socket(io_service, udp::endpoint(udp::v4(), port)),
       m_strand(io_service),
       m_queuePtr(queuePtr),
@@ -78,7 +79,7 @@ public:
   void do_receive() {
     TRACE("do_receive()");
 
-    udp_session::pointer new_session = udp_session::create(m_queuePtr, m_chunkQueuePtr);
+    udp_session::pointer new_session = udp_session::create(m_name, m_queuePtr, m_chunkQueuePtr);
 
     auto handler = [this, new_session](const boost::system::error_code& error, std::size_t bytes_transferred) {
       handle_receive(new_session, error, bytes_transferred);

@@ -16,12 +16,13 @@
 #include "GelfException.h"
 #include "core/Base.h"
 #include "core/Log.h"
+#include "formats/Message.h"
 #include "formats/MessageInterface.h"
 #include "formats/Object.h"
 
 namespace iqlogger::formats::gelf {
 
-class GelfMessage : public MessageInterface
+class GelfMessage : public MessageInterface, public Message
 {
   struct gelf {
     std::string version;
@@ -38,7 +39,7 @@ class GelfMessage : public MessageInterface
   public:
     gelf();
     explicit gelf(std::string_view message);
-    std::string dump() const;
+    [[nodiscard]] std::string dump() const;
   };
 
   gelf m_gelf;
@@ -47,17 +48,17 @@ class GelfMessage : public MessageInterface
 public:
   using SourceT = endpoint_t;
 
-  GelfMessage();
+  GelfMessage(std::string input);
 
   template<class T, typename = std::enable_if_t<std::is_constructible_v<std::string, std::decay_t<T>>>>
-  explicit GelfMessage(T&& message) : m_gelf(decompress(std::forward<T>(message))) {
+  explicit GelfMessage(std::string input, T&& message) :
+      Message(std::move(input)), m_gelf(decompress(std::forward<T>(message))) {
     TRACE("GelfMessage::GelfMessage(std::string&& message)");
   }
 
   template<class T, typename = std::enable_if_t<std::is_same<std::decay_t<T>, endpoint_t>::value>>
-  explicit GelfMessage(std::string&& message, T&& endpoint) :
-      m_gelf(decompress(std::move(message))),
-      m_endpoint(std::forward<T>(endpoint)) {
+  explicit GelfMessage(std::string input, std::string&& message, T&& endpoint) :
+      Message(std::move(input)), m_gelf(decompress(std::move(message))), m_endpoint(std::forward<T>(endpoint)) {
     TRACE("Construct GELF Message: " << message << " from " << m_endpoint);
   }
 
@@ -113,19 +114,18 @@ public:
     }
   }
 
-  std::string exportMessage() const override { return m_gelf.dump(); }
+  [[nodiscard]] std::string exportMessage() const override { return m_gelf.dump(); }
 
   inline static double getCurrentTime();
   inline static const std::string& getHostname();
 
-  std::string exportMessage2Json() const override { return m_gelf.dump(); }
+  std::string exportMessage2Json() const override;
 
   endpoint_t getSource() const { return m_endpoint; }
 
   ~GelfMessage();
 
 private:
-
   template<class T, typename = std::enable_if_t<std::is_same_v<std::decay_t<T>, std::string>>>
   std::string decompress(T&& buffer) {
     if (buffer.size() <= 2)

@@ -21,7 +21,9 @@ void ConsoleWrapper::log(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
       v8::Local<v8::String> strObject;
 
-      if (!v8::JSON::Stringify(args.GetIsolate()->GetCurrentContext(), args[i]).ToLocal(&strObject)) {
+      if(auto r = v8::JSON::Stringify(args.GetIsolate()->GetCurrentContext(), args[i]); !r.IsEmpty()) {
+        strObject = r.ToLocalChecked();
+      } else {
         std::stringstream oss;
         v8::String::Utf8Value str(args.GetIsolate(), args[i]);
         oss << "Error sringify object: " << *str;

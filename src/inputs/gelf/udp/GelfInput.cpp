@@ -7,15 +7,14 @@
 //
 
 #include "GelfInput.h"
+
 #include <metrics/MetricsController.h>
 
 using namespace iqlogger::inputs::gelf::udp;
 using namespace iqlogger::formats::gelf;
 
 GelfInput::GelfInput(const config::SourceConfig& sourceConfig) :
-    IOInput::IOInput(sourceConfig),
-    m_chunkQueuePtr{std::make_shared<ChunkQueue>()},
-    m_bad_chunks{0} {
+    IOInput::IOInput(sourceConfig), m_chunkQueuePtr{std::make_shared<ChunkQueue>()}, m_bad_chunks{0} {
   m_chunk_ttl = sourceConfig.getParam<unsigned short>("chunked_timeout").value_or(5);
 
   if (auto port = sourceConfig.getParam<unsigned short>("port"); port) {
@@ -31,7 +30,7 @@ GelfInput::GelfInput(const config::SourceConfig& sourceConfig) :
   metrics::MetricsController::getInstance()->registerMetric("inputs." + m_name + ".bad_chunks",
                                                             [this]() { return m_bad_chunks.load(); });
 
-  m_serverPtr = std::make_shared<Server>(m_inputQueuePtr, m_chunkQueuePtr, m_io_service, m_port);
+  m_serverPtr = std::make_shared<Server>(m_name, m_inputQueuePtr, m_chunkQueuePtr, m_io_service, m_port);
 }
 
 void GelfInput::startImpl() {
@@ -104,7 +103,7 @@ void GelfInput::startImpl() {
               try {
                 if (auto it = messagePtr->chunks.begin(); it != messagePtr->chunks.end()) {
                   if (!m_inputQueuePtr->enqueue(
-                          std::make_unique<Record<Gelf>>(totalMessage.str(), it->second->getSource()))) {
+                          std::make_unique<Record<Gelf>>(m_name, totalMessage.str(), it->second->getSource()))) {
                     ERROR("Gelf UDP Input queue is full... Dropping...");
                   }
                 } else {

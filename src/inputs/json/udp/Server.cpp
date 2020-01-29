@@ -21,7 +21,7 @@ void Server::udp_session::process(const boost::system::error_code& error, std::s
                    << "` EC: " << error.message());
 
   try {
-    if (!m_queuePtr->enqueue(std::make_unique<Record<Json>>(std::move(buff), Json::SourceT(m_remote_endpoint)))) {
+    if (!m_queuePtr->enqueue(std::make_unique<Record<Json>>(m_name, std::move(buff), Json::SourceT(m_remote_endpoint)))) {
       ERROR("Json UDP Input queue is full... Dropping...");
     }
   } catch (const JsonException& e) {

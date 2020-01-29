@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.7)
 project(iqlogger)
 
-set(IQLOGGER_INPUT_MODULES gelf tail journal json dummy)
-#set(IQLOGGER_INPUT_MODULES gelf tail json dummy)
+#set(IQLOGGER_INPUT_MODULES gelf tail journal json dummy)
+set(IQLOGGER_INPUT_MODULES gelf tail json dummy)
 set(IQLOGGER_OUTPUT_MODULES gelf log)
 set(IQLOGGER_STATS_MODULES http telegraf)
 set(IQLOGGER_WITH_PROCESSOR ON)

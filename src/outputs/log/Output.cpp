@@ -107,7 +107,7 @@ Record<Log>::Record(const iqlogger::inputs::json::Json::MessageT& message) : m_d
 // Dummy
 template<>
 template<>
-Record<Log>::Record(const iqlogger::inputs::dummy::Dummy::MessageT& message) : m_data(message) {
+Record<Log>::Record(const iqlogger::inputs::dummy::Dummy::MessageT& message) : m_data(message.exportMessage()) {
   TRACE("Transform Dummy -> Log: ");
 }
 #endif
@@ -116,7 +116,7 @@ Record<Log>::Record(const iqlogger::inputs::dummy::Dummy::MessageT& message) : m
 // Processor
 template<>
 template<>
-Record<Log>::Record(const ProcessorMessage& message) : m_data(message.exportMessage2Json()) {
+Record<Log>::Record(const ProcessorMessage& message) : m_data(message.exportMessage()) {
   TRACE("Transform Processor -> Log: ");
 }
 #endif

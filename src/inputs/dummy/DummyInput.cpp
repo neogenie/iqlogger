@@ -39,7 +39,7 @@ void DummyInput::startImpl() {
 
   m_thread = std::thread([this]() {
     while (isRunning()) {
-      if (!m_inputQueuePtr->enqueue(std::make_unique<Record<Dummy>>(std::string(m_dummy_text)))) {
+      if (!m_inputQueuePtr->enqueue(std::make_unique<Record<Dummy>>(m_name, std::string(m_dummy_text)))) {
         ERROR("Dummy Input queue is full... Dropping...");
       }
 

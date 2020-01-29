@@ -23,13 +23,12 @@ public:
     TRACE("ProcessorMessage() " << json);
   }
 
-  std::string exportMessage() const override {
+  [[nodiscard]] std::string exportMessage() const override {
     return m_data;
   }
 
-  // @TODO (???)
-  std::string exportMessage2Json() const override {
-    return m_data;
+  [[nodiscard]] std::string exportMessage2Json() const override {
+    return exportMessage();
   }
 
   ProcessorMessage(ProcessorMessage&&) noexcept = default;

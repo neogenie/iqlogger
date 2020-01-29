@@ -19,7 +19,7 @@ GelfInput::GelfInput(const config::SourceConfig& sourceConfig) : IOInput::IOInpu
     throw Exception(oss.str());
   }
 
-  m_serverPtr = std::make_shared<Server>(m_inputQueuePtr, m_io_service, m_port);
+  m_serverPtr = std::make_shared<Server>(m_name, m_inputQueuePtr, m_io_service, m_port);
 }
 
 GelfInput::~GelfInput() {

@@ -13,13 +13,14 @@
 #include <sstream>
 
 #include "Exception.h"
+#include "formats/Message.h"
 #include "formats/MessageInterface.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
 namespace iqlogger::formats::tail {
 
-class TailMessage : public MessageInterface
+class TailMessage : public MessageInterface, public Message
 {
   std::string m_data;
   std::string m_filename;
@@ -28,10 +29,10 @@ public:
   using SourceT = std::string;
 
   template<typename T, typename U>
-  explicit TailMessage(T&& data, U&& filename) : m_data(std::forward<T>(data)), m_filename(std::forward<U>(filename)){};
+  explicit TailMessage(std::string input, T&& data, U&& filename) : Message(std::move(input)), m_data(std::forward<T>(data)), m_filename(std::forward<U>(filename)){};
 
   template<typename T, typename = std::enable_if_t<std::is_same<std::string, std::decay_t<T>>::value>>
-  explicit TailMessage(T&& json) {
+  explicit TailMessage(std::string input, T&& json) : Message(std::move(input)) {
     try {
       nlohmann::json j = nlohmann::json::parse(std::forward<T>(json));
 
@@ -66,6 +67,8 @@ public:
     writer.String(m_data);
     writer.Key("filename");
     writer.String(m_filename);
+    writer.Key("input");
+    writer.String(getInput());
     writer.EndObject();
     return s.GetString();
   }

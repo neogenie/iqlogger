@@ -38,6 +38,8 @@ class TailMonitor
     constexpr static size_t read_buffer_size = 4096 * 1024;  // 4Mb
     using read_buffer_t = std::array<char, read_buffer_size>;
 
+    const std::string m_name;
+
     std::string m_fileName;
 
     boost::iostreams::file_descriptor_source m_fileDescriptor;
@@ -63,7 +65,7 @@ class TailMonitor
     void savePosition() const;
 
   public:
-    explicit PointersTableInternalRecord(const std::string& file, DelimiterRegex startmsg_regex,
+    explicit PointersTableInternalRecord(std::string name, const std::string& file, DelimiterRegex startmsg_regex,
                                          RecordQueuePtr<Tail> queuePtr, bool followOnly, bool saveState);
 
     virtual ~PointersTableInternalRecord();

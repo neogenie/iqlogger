@@ -13,11 +13,12 @@
 
 #include "JsonException.h"
 #include "config/ConfigManager.h"
+#include "formats/Message.h"
 #include "formats/MessageInterface.h"
 
 namespace iqlogger::formats::json {
 
-class JsonMessage : public MessageInterface
+class JsonMessage : public MessageInterface, public Message
 {
   nlohmann::json m_json;
   endpoint_t m_endpoint;
@@ -25,10 +26,11 @@ class JsonMessage : public MessageInterface
 public:
   using SourceT = endpoint_t;
 
-  JsonMessage() { TRACE("JsonMessage::JsonMessage()"); }
+  explicit JsonMessage(std::string input) : Message(std::move(input)) { TRACE("JsonMessage::JsonMessage()"); }
 
   template<class T, typename = std::enable_if_t<std::is_same<std::decay_t<T>, endpoint_t>::value>>
-  explicit JsonMessage(std::string&& message, T&& endpoint) : m_endpoint(std::forward<T>(endpoint)) {
+  explicit JsonMessage(std::string input, std::string&& message, T&& endpoint) :
+      Message(std::move(input)), m_endpoint(std::forward<T>(endpoint)) {
     TRACE("JsonMessage::JsonMessage(std::string&& message, T&& endpoint)");
 
     try {
@@ -44,7 +46,7 @@ public:
     TRACE("Construct JSON Message: " << message << " from " << m_endpoint);
   }
 
-  explicit JsonMessage(nlohmann::json&& json) : m_json(std::move(json)) {
+  explicit JsonMessage(std::string input, nlohmann::json&& json) : Message(std::move(input)), m_json(std::move(json)) {
     TRACE("JsonMessage::JsonMessage(nlohmann::json&&)");
   }
 
@@ -52,6 +54,7 @@ public:
 
   std::string exportMessage() const override { return m_json.dump(); }
 
+  // @TODO
   std::string exportMessage2Json() const override { return m_json.dump(); }
 
   endpoint_t getSource() const { return m_endpoint; }

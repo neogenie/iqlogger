@@ -11,12 +11,12 @@
 #define RAPIDJSON_HAS_STDSTRING 1
 
 #include <chrono>
-#include <unordered_map>
-#include <sstream>
-
 #include <nlohmann/json.hpp>
+#include <sstream>
+#include <unordered_map>
 
 #include "Exception.h"
+#include "formats/Message.h"
 #include "formats/MessageInterface.h"
 #include "formats/Object.h"
 
@@ -24,7 +24,7 @@ namespace iqlogger::formats::journal {
 
 using JournalRecord = Object;
 
-class JournalMessage : public MessageInterface
+class JournalMessage : public MessageInterface, public Message
 {
   JournalRecord m_data;
   uint64_t m_timestamp;
@@ -36,10 +36,11 @@ public:
   using SourceT = void;
 
   template<typename T>
-  explicit JournalMessage(T&& data, uint64_t timestamp) : m_data(std::forward<T>(data)), m_timestamp(timestamp) {}
+  explicit JournalMessage(std::string input, T&& data, uint64_t timestamp) :
+      Message(std::move(input)), m_data(std::forward<T>(data)), m_timestamp(timestamp) {}
 
   template<typename T, typename = std::enable_if_t<std::is_same<std::string, std::decay_t<T>>::value>>
-  explicit JournalMessage(T&& json) {
+  explicit JournalMessage(std::string input, T&& json) : Message(std::move(input)) {
     try {
       nlohmann::json j = nlohmann::json::parse(std::forward<T>(json));
       m_data = j.at("data").get<JournalRecord>();
@@ -66,4 +67,4 @@ public:
 
   ~JournalMessage() = default;
 };
-}
+}  // namespace iqlogger::formats::journal
