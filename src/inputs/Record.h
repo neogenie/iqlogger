@@ -70,7 +70,12 @@ public:
   ~Record() { TRACE("inputs::Record::~Record()"); }
 
   UniqueMessagePtr exportMessage() {
-    if constexpr (std::is_void_v<typename T::SourceT>) {
+
+    if constexpr (std::is_same_v<MessageT, RecordDataT>) {
+      MessageT message(std::move(m_data));
+      return std::make_unique<Message>(std::move(message));
+    }
+    else if constexpr (std::is_void_v<typename T::SourceT>) {
       MessageT message(m_input, std::move(m_data));
       return std::make_unique<Message>(std::move(message));
     } else {
