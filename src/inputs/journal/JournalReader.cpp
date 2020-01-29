@@ -155,7 +155,7 @@ void JournalReader::async_read() {
 
 void JournalReader::process(JournalMessage &&journal_message) {
   try {
-    if (!m_queuePtr->enqueue(std::make_unique<Record<Journal>>(std::move(journal_message)))) {
+    if (!m_queuePtr->enqueue(std::make_unique<Record<Journal>>(m_name, std::move(journal_message)))) {
       ERROR("Journal Input queue is full... Dropping...");
     }
   } catch (const Exception &e) {
