@@ -24,6 +24,7 @@ class JournalReader
 {
   using units_filter_t = std::optional<std::vector<std::string>>;
 
+  std::string m_name;
   sd_journal *m_journal;
   int m_journal_inotify_fd;
   std::unique_ptr<boost::asio::posix::stream_descriptor> m_journal_descriptor;
@@ -40,7 +41,7 @@ class JournalReader
   void process(JournalMessage &&journal_message);
 
 public:
-  JournalReader(RecordQueuePtr<Journal> queuePtr, boost::asio::io_service &io_service, units_filter_t units_filter);
+  JournalReader(std::string name, RecordQueuePtr<Journal> queuePtr, boost::asio::io_service &io_service, units_filter_t units_filter);
   ~JournalReader();
 };
 

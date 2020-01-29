@@ -10,9 +10,9 @@
 
 using namespace iqlogger::inputs::journal;
 
-JournalReader::JournalReader(RecordQueuePtr<Journal> queuePtr, boost::asio::io_service &io_service,
+JournalReader::JournalReader(std::string name, RecordQueuePtr<Journal> queuePtr, boost::asio::io_service &io_service,
                              units_filter_t units_filter) :
-    m_strand(io_service), m_queuePtr(queuePtr), m_units(units_filter) {
+    m_name(std::move(name)), m_strand(io_service), m_queuePtr(queuePtr), m_units(units_filter) {
   TRACE("JournalReader::JournalReader()");
 
   int error_code = sd_journal_open(&m_journal, SD_JOURNAL_LOCAL_ONLY);
@@ -111,7 +111,7 @@ void JournalReader::read_journal() {
     uint64_t usec;
     sd_journal_get_realtime_usec(m_journal, &usec);
 
-    JournalMessage message(values, usec);
+    JournalMessage message(m_name, values, usec);
 
     process(std::move(message));
   }

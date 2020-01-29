@@ -7,6 +7,7 @@
 //
 
 #include "JournalInput.h"
+
 #include "Journal.h"
 
 using namespace iqlogger;
@@ -14,7 +15,7 @@ using namespace iqlogger::inputs::journal;
 
 JournalInput::JournalInput(const config::SourceConfig& sourceConfig) : IOInput<Journal>::IOInput(sourceConfig) {
   TRACE("JournalInput::JournalInput()");
-  m_readerPtr = std::make_unique<JournalReader>(m_inputQueuePtr, m_io_service,
+  m_readerPtr = std::make_unique<JournalReader>(m_name, m_inputQueuePtr, m_io_service,
                                                 sourceConfig.getParam<std::vector<std::string>>("units"));
 }
 
