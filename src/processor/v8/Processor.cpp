@@ -26,8 +26,6 @@ void Processor::initImpl(std::any) {}
 
 void Processor::startImpl() {
   TRACE("Processor::start()");
-
-  TRACE("Processor::start() <-");
 }
 
 void Processor::stopImpl() {
