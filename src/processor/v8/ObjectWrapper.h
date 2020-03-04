@@ -25,6 +25,8 @@ public:
 
   template<typename T, typename D = T, typename = std::enable_if_t<std::is_base_of_v<formats::MessageInterface, T>>>
   v8::Local<v8::Object> wrapObject(T* object) const {
+    v8::EscapableHandleScope handle_scope(m_isolate);
+
     auto jsonString =
         v8::String::NewFromUtf8(m_isolate, object->exportMessage2Json().c_str(), v8::NewStringType::kNormal)
             .ToLocalChecked();
@@ -46,7 +48,7 @@ public:
       throw ProcessorException(oss.str());
     }
 
-    return v8::Local<v8::Object>::Cast(value);
+    return handle_scope.Escape(v8::Local<v8::Object>::Cast(value));
   }
 
   template<typename T>

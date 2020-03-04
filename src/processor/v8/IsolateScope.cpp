@@ -105,6 +105,10 @@ UniqueMessagePtr IsolateScope::process(ProcessorRecordPtr processorRecordPtr) {
     throw ProcessorException("Error script index");
   }
 
+  v8::HandleScope handle_scope(m_isolate);
+  v8::Local<v8::Context> context = v8::Local<v8::Context>::New(m_isolate, m_context);
+  v8::Context::Scope context_scope(context);
+
   TRACE("IsolateScope make jsObject");
 
   auto jsObject = makeJsObject(message);
@@ -116,8 +120,7 @@ UniqueMessagePtr IsolateScope::process(ProcessorRecordPtr processorRecordPtr) {
 
   TRACE("IsolateScope Call function");
 
-  v8::Local<v8::Value> value;
-  if (auto r = m_functions[scriptIndex]->Call(m_context, m_context->Global(), 1, args); !r.IsEmpty()) {
+  if (auto r = m_functions[scriptIndex]->Call(context, context->Global(), 1, args); !r.IsEmpty()) {
     result = r.ToLocalChecked();
   } else {
     throw ProcessorException("Something strange...");
@@ -157,8 +160,8 @@ UniqueMessagePtr IsolateScope::process(ProcessorRecordPtr processorRecordPtr) {
     throw ProcessorException(oss.str());
   }
 
-  while (v8::platform::PumpMessageLoop(m_enginePtr->getPlatformPtr(), m_isolate))
-    continue;
+  while (v8::platform::PumpMessageLoop(m_enginePtr->getPlatformPtr(), m_isolate)) {
+  }
 
   return resultMessage;
 }

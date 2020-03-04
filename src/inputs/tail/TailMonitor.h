@@ -57,7 +57,7 @@ class TailMonitor
 
     read_buffer_t m_read_buffer;
 
-    bool m_firstRead = 0;
+    bool m_firstRead = false;
 
     void processBuffer(std::string_view buffer);
     void processMessage(std::string_view buffer);
