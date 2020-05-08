@@ -56,7 +56,7 @@
         "protocol" : "tcp",
         "port" : 12202,
         "hosts" : [
-          ""
+          "graylog-int.lo.mobbtech.com"
         ],
         "timeout" : 30,
         "threads": 2
