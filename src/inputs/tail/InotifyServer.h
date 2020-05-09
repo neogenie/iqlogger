@@ -9,12 +9,11 @@
 #pragma once
 
 #include <boost/asio.hpp>
+
 #include <array>
 #include <iostream>
 #include <regex>
-
 #include <sys/inotify.h>
-
 #include <tbb/concurrent_hash_map.h>
 
 #include "Event.h"
@@ -35,18 +34,18 @@ class InotifyServer : public Singleton<InotifyServer>, public TaskInterface
       const notifier_t m_notifier;
 
       explicit WatchNotifier(std::regex regex, notifier_t notifier) :
-          m_regex(std::move(regex)),
-          m_notifier(std::move(notifier)) {}
+          m_regex(std::move(regex)), m_notifier(std::move(notifier)) {}
     };
 
     using WatchNotifierPtr = std::unique_ptr<WatchNotifier>;
 
+    InotifyServer& m_inotifyServer;
     const std::string m_directory;
     std::vector<WatchNotifierPtr> m_notifiers;
 
   public:
-    explicit Watch(std::string directory);
-    void addNotifier(notifier_t notifier, std::regex regex);
+    explicit Watch(InotifyServer& inotifyServer, std::string directory);
+    void addNotifier(notifier_t notifier, const std::string& pattern);
     void notify(EventPtr eventPtr) const;
   };
 
@@ -60,7 +59,7 @@ class InotifyServer : public Singleton<InotifyServer>, public TaskInterface
 
 public:
   virtual ~InotifyServer();
-  void addWatch(const std::string& path, notifier_t notifier);
+  void addWatch(const std::string& path, const notifier_t& notifier, bool fileOnlyMode = false);
 
 protected:
   void initImpl(std::any) override;

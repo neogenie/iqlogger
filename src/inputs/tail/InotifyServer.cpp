@@ -7,17 +7,14 @@
 //
 
 #include "InotifyServer.h"
+
 #include "core/Log.h"
 
 using namespace iqlogger;
 using namespace iqlogger::inputs::tail;
 
 InotifyServer::InotifyServer() :
-    m_inotify_fd{inotify_init1(IN_NONBLOCK)},
-    m_io_service{},
-    m_stream(m_io_service, m_inotify_fd),
-    m_strand(m_io_service),
-    m_watchDescriptorsMap() {
+    m_inotify_fd(inotify_init1(IN_NONBLOCK)), m_stream(m_io_service, m_inotify_fd), m_strand(m_io_service) {
   TRACE("InotifyServer::InotifyServer()");
   DEBUG("Create Inotify Descriptor: " << m_inotify_fd);
 
@@ -40,69 +37,69 @@ void InotifyServer::begin_read() {
 }
 
 void InotifyServer::end_read(const boost::system::error_code& ec, std::size_t bytes_transferred) {
-  TRACE("InotifyServer::end_read()");
-  TRACE("Inotify EC: " << ec.value() << " (" << ec.message() << ")");
+  DEBUG("InotifyServer::end_read()");
 
   if (!ec) {
     m_pending_read_buffer += std::string(m_read_buffer.data(), bytes_transferred);
     while (m_pending_read_buffer.size() >= sizeof(inotify_event)) {
-      const inotify_event* iev = reinterpret_cast<const inotify_event*>(m_pending_read_buffer.data());
+      const auto* iev = reinterpret_cast<const inotify_event*>(m_pending_read_buffer.data());
 
-      TRACE("Inotify event WD: " << iev->wd << " Name: " << iev->name);
+      DEBUG("Inotify event WD: " << iev->wd << " Name: " << iev->name);
 
       switch (iev->mask) {
       case IN_ACCESS:
-        TRACE("Inotify IN_ACCESS: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_ACCESS: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         break;
 
       case IN_OPEN:
-        TRACE("Inotify IN_OPEN: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_OPEN: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         break;
 
       case IN_CLOSE_NOWRITE:
-        TRACE("Inotify IN_CLOSE_NOWRITE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_CLOSE_NOWRITE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         break;
 
       case IN_CLOSE_WRITE:
-        TRACE("Inotify IN_CLOSE_WRITE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_CLOSE_WRITE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         // notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::MODIFY, iev->name));
         break;
 
       case IN_CREATE:
-        TRACE("Inotify CREATE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify CREATE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::CREATE, iev->name));
         break;
 
       case IN_ATTRIB:
-        TRACE("Inotify IN_ATTRIB: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_ATTRIB: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         break;
 
       case IN_DELETE:
-        TRACE("Inotify DELETE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify DELETE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::DELETE, iev->name));
         break;
 
       case IN_MOVED_FROM:
-        TRACE("Inotify MOVED_FROM: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify MOVED_FROM: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::MOVE, iev->name));
         break;
 
       case IN_MOVED_TO:
-        TRACE("Inotify MOVED_TO: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify MOVED_TO: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::CREATE, iev->name));
         break;
 
       case IN_CREATE | IN_ISDIR:
-        TRACE("Inotify IN_CREATE | IN_ISDIR: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex
+        DEBUG("Inotify IN_CREATE | IN_ISDIR: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex
                                                << iev->mask);
+        notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::CREATE, iev->name));
         break;
 
       case IN_MOVE_SELF:
-        TRACE("Inotify IN_MOVE_SELF: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_MOVE_SELF: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         break;
 
       case IN_MODIFY:
-        TRACE("Inotify MODIFY: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify MODIFY: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
         notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::MODIFY, iev->name));
         break;
 
@@ -120,31 +117,34 @@ void InotifyServer::end_read(const boost::system::error_code& ec, std::size_t by
 }
 
 void InotifyServer::notify(fd_t watchDescriptor, EventPtr eventPtr) {
-  TRACE("InotifyServer::notify()");
+  DEBUG("InotifyServer::notify(): " << watchDescriptor << " Name: " << eventPtr->m_filename
+                                    << " Type: " << eventPtr->m_eventType);
 
   WatchDescriptorsMap::const_accessor wd_accessor;
 
   if (m_watchDescriptorsMap.find(wd_accessor, watchDescriptor)) {
     wd_accessor->second->notify(std::move(eventPtr));
   } else {
-    ERROR("Error find WATCH WD");
+    ERROR("Error find WATCH WD: " << watchDescriptor);
   }
 }
 
-void InotifyServer::addWatch(const std::string& path, notifier_t notifier) {
-  TRACE("InotifyServer::addWatch()");
-
-  DEBUG("Add WATCH: PATH: `" << path << "`");
+void InotifyServer::addWatch(const std::string& path, const notifier_t& notifier, bool fileOnlyMode) {
+  DEBUG("Add Watch: path: `" << path << "`. File Only Mode: " << std::boolalpha << fileOnlyMode);
 
   std::string directory;
   std::string pattern;
 
-  if (std::filesystem::is_directory(path)) {
-    directory = path;
-    pattern = path + "/(.*)";
+  if (fileOnlyMode) {
+    directory = pattern = path;
   } else {
-    directory = std::filesystem::path(path).parent_path();
-    pattern = path;
+    if (std::filesystem::is_directory(path)) {
+      directory = path;
+      pattern = path + "/(.*)";
+    } else {
+      directory = std::filesystem::path(path).parent_path();
+      pattern = path;
+    }
   }
 
   DEBUG("Add WATCH: DIR: `" << directory << "` PATTERN: `" << pattern << "`");
@@ -162,20 +162,30 @@ void InotifyServer::addWatch(const std::string& path, notifier_t notifier) {
     WatchDescriptorsMap::accessor wd_accessor;
 
     if (m_watchDescriptorsMap.insert(wd_accessor, watchDescriptor)) {
-      wd_accessor->second = std::make_unique<Watch>(directory);
+      wd_accessor->second = std::make_unique<Watch>(*this, directory);
     }
 
-    wd_accessor->second->addNotifier(std::move(notifier), std::regex(pattern));
+    wd_accessor->second->addNotifier(notifier, pattern);
   }
 
   try {
-    for (auto& p : std::filesystem::directory_iterator(directory)) {
+    INFO("Find all files & directories in `" << directory << "` with pattern `" << pattern << "`");
+    for (const auto& p : std::filesystem::directory_iterator(directory)) {
       auto filename = p.path().string();
       if (std::regex_match(filename, std::regex(pattern))) {
-        DEBUG("Initial read from matched file: " << filename);
-        notify(watchDescriptor, std::make_unique<Event>(watchDescriptor, event_t::_INIT, p.path().filename()));
+        if (std::filesystem::is_directory(filename)) {
+          DEBUG("Path: `" << filename << "` is directory. Recursive add watch to directory...");
+          addWatch(filename, notifier);
+        } else if (std::filesystem::is_symlink(filename)) {
+          auto linked = std::filesystem::read_symlink(filename);
+          DEBUG("Path: `" << filename << "` is symlink. Recursive add watch to source `" << linked.string() << "`...");
+          addWatch(linked.string(), notifier);
+        } else {
+          DEBUG("Path: `" << filename << "` is file. Initial read from matched file...");
+          notify(watchDescriptor, std::make_unique<Event>(watchDescriptor, event_t::_INIT, p.path().filename()));
+        }
       } else {
-        TRACE("NOT Initial read from not matched file: " << filename);
+        DEBUG("NOT Initial read from not matched file: " << filename);
       }
     }
   } catch (const std::filesystem::filesystem_error& e) {
@@ -207,45 +217,56 @@ void InotifyServer::startImpl() {
 }
 
 void InotifyServer::stopImpl() {
-  TRACE("InotifyServer::stop()");
   INFO("Stop Inotify Server");
 
   m_io_service.stop();
 
-  TRACE("Join threads... ");
+  DEBUG("Join Inotify Server threads... ");
   for (auto& t : m_threads) {
-    if (t.joinable())
+    if (t.joinable()) {
       t.join();
+    }
   }
 }
 
 InotifyServer::~InotifyServer() {
-  TRACE("InotifyServer::~InotifyServer()");
+  DEBUG("InotifyServer::~InotifyServer()");
 }
 
-InotifyServer::Watch::Watch(std::string directory) : m_directory(std::move(directory)) {
-  TRACE("InotifyServer::Watch::Watch()");
+InotifyServer::Watch::Watch(InotifyServer& inotifyServer, std::string directory) :
+    m_inotifyServer(inotifyServer), m_directory(std::move(directory)) {
+  DEBUG("InotifyServer::Watch::Watch(" << m_directory << ")");
 }
 
-void InotifyServer::Watch::addNotifier(notifier_t notifier, std::regex regex) {
-  TRACE("InotifyServer::Watch::addNotifier()");
-  m_notifiers.emplace_back(std::make_unique<InotifyServer::Watch::WatchNotifier>(std::move(regex), std::move(notifier)));
+void InotifyServer::Watch::addNotifier(notifier_t notifier, const std::string& pattern) {
+  DEBUG("InotifyServer::Watch::addNotifier(" << pattern << ")");
+  m_notifiers.emplace_back(
+      std::make_unique<InotifyServer::Watch::WatchNotifier>(std::regex(pattern), std::move(notifier)));
 }
 
 void InotifyServer::Watch::notify(EventPtr eventPtr) const {
-  TRACE("InotifyServer::Watch::notify()");
-  TRACE("Notify: " << eventPtr->m_watchDescriptor << " Name: " << eventPtr->m_filename
+  DEBUG("Notify: " << eventPtr->m_watchDescriptor << " Name: " << eventPtr->m_filename
                    << " Type: " << eventPtr->m_eventType);
 
-  std::string fullName = m_directory + '/' + eventPtr->m_filename;
+  auto filename = m_directory + '/' + eventPtr->m_filename;
 
   for (auto& notifier : m_notifiers) {
-    if (std::regex_match(fullName, notifier->m_regex)) {
-      TRACE("Event match: " << fullName);
-      notifier->m_notifier(
-          std::make_unique<Event>(eventPtr->m_watchDescriptor, eventPtr->m_eventType, std::move(fullName)));
+    if (std::regex_match(filename, notifier->m_regex)) {
+      DEBUG("Event match: " << filename);
+
+      if (std::filesystem::is_directory(filename)) {
+        DEBUG("Path: `" << filename << "` is directory. Recursive add watch to directory...");
+        m_inotifyServer.addWatch(filename, notifier->m_notifier);
+      } else if (std::filesystem::is_symlink(filename)) {
+        auto linked = std::filesystem::read_symlink(filename);
+        DEBUG("Path: `" << filename << "` is symlink. Recursive add watch to source `" << linked.string() << "`...");
+        m_inotifyServer.addWatch(linked.string(), notifier->m_notifier);
+      } else {
+        DEBUG("Path: `" << filename << "` is file. Notify...");
+        notifier->m_notifier(std::make_unique<Event>(eventPtr->m_watchDescriptor, eventPtr->m_eventType, filename));
+      }
     } else {
-      TRACE("Event not match: " << fullName);
+      DEBUG("Event not match: " << filename);
     }
   }
 }

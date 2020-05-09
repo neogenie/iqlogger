@@ -34,13 +34,12 @@ struct Event {
 
   template<typename T>
   explicit Event(fd_t wd, EventType event, T&& filename) :
-      m_watchDescriptor(wd),
-      m_eventType(event),
-      m_filename(std::forward<std::string>(filename)) {
-    TRACE("Event::Event()");
+      m_watchDescriptor(wd), m_eventType(event), m_filename(std::forward<std::string>(filename)) {
+    DEBUG("Event::Event(" << m_watchDescriptor << ", " << event_to_str(m_eventType).data() << ", " << m_filename
+                          << ")");
   }
 
-  ~Event() { TRACE("Event::~Event()"); }
+  ~Event() { DEBUG("Event::~Event()"); }
 
 private:
   static constexpr std::pair<EventType, frozen::string> s_event_to_name_map[]{
@@ -61,4 +60,4 @@ using notifier_t = std::function<void(EventPtr)>;
 
 }  // namespace iqlogger::inputs::tail
 
-std::ostream& operator<<(std::ostream& os, const iqlogger::inputs::tail::event_t event);
+std::ostream& operator<<(std::ostream& os, iqlogger::inputs::tail::event_t event);
