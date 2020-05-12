@@ -15,7 +15,6 @@ using namespace iqlogger::inputs::tail;
 
 InotifyServer::InotifyServer() :
     m_inotify_fd(inotify_init1(IN_NONBLOCK)), m_stream(m_io_service, m_inotify_fd), m_strand(m_io_service) {
-  TRACE("InotifyServer::InotifyServer()");
   DEBUG("Create Inotify Descriptor: " << m_inotify_fd);
 
   if (m_inotify_fd == -1) {
@@ -120,53 +119,45 @@ void InotifyServer::notify(fd_t watchDescriptor, EventPtr eventPtr) {
   DEBUG("InotifyServer::notify(): " << watchDescriptor << " Name: " << eventPtr->m_filename
                                     << " Type: " << eventPtr->m_eventType);
 
-  WatchDescriptorsMap::const_accessor wd_accessor;
-
-  if (m_watchDescriptorsMap.find(wd_accessor, watchDescriptor)) {
-    wd_accessor->second->notify(std::move(eventPtr));
-  } else {
-    ERROR("Error find WATCH WD: " << watchDescriptor);
+  if (auto watchPtr = m_watchDescriptorsMap.findByWatchDescriptor(watchDescriptor); watchPtr) {
+    DEBUG("Found path notify WD: " << *watchPtr);
+    watchPtr->notify(std::move(eventPtr));
   }
 }
 
-void InotifyServer::addWatch(const std::string& path, const notifier_t& notifier, bool fileOnlyMode) {
-  DEBUG("Add Watch: path: `" << path << "`. File Only Mode: " << std::boolalpha << fileOnlyMode);
+std::pair<std::string, std::string> InotifyServer::makeWatchPath(const std::string& path) {
+  std::pair<std::string, std::string> result;
 
-  std::string directory;
-  std::string pattern;
+  auto& [directory, pattern] = result;
 
-  if (fileOnlyMode) {
-    directory = pattern = path;
+  if (std::filesystem::is_directory(path)) {
+    directory = path;
+    pattern = path + "/(.*)";
   } else {
-    if (std::filesystem::is_directory(path)) {
-      directory = path;
-      pattern = path + "/(.*)";
-    } else {
-      directory = std::filesystem::path(path).parent_path();
-      pattern = path;
-    }
+    directory = std::filesystem::path(path).parent_path();
+    pattern = path;
   }
 
-  DEBUG("Add WATCH: DIR: `" << directory << "` PATTERN: `" << pattern << "`");
+  return result;
+}
+
+void InotifyServer::addWatch(const std::string& path, const notifier_t& notifier) {
+  DEBUG("Add Watch: path: `" << path << "`");
+
+  auto [directory, pattern] = makeWatchPath(path);
+
+  DEBUG("Add Watch to directory: `" << directory << "` Pattern:: `" << pattern << "`");
 
   auto watchDescriptor = inotify_add_watch(m_inotify_fd, directory.c_str(), inotify_events);
-  INFO("New listener to directory " << directory << " I_FD: " << m_inotify_fd << " W_FD: " << watchDescriptor);
+  INFO("New listener to `" << directory << "` I_FD: " << m_inotify_fd << " W_FD: " << watchDescriptor);
 
   if (watchDescriptor == -1) {
-    boost::system::system_error e(boost::system::error_code(errno, boost::asio::error::get_system_category()),
-                                  "Inotify watch failed");
-    boost::throw_exception(e);
+    CRITICAL("Inotify watch failed to " << directory);
+    return;
   }
 
-  {
-    WatchDescriptorsMap::accessor wd_accessor;
-
-    if (m_watchDescriptorsMap.insert(wd_accessor, watchDescriptor)) {
-      wd_accessor->second = std::make_unique<Watch>(*this, directory);
-    }
-
-    wd_accessor->second->addNotifier(notifier, pattern);
-  }
+  auto watchPtr = std::make_shared<Watch>(*this, watchDescriptor, directory, pattern, notifier);
+  m_watchDescriptorsMap.addWatch(std::move(watchPtr));
 
   try {
     INFO("Find all files & directories in `" << directory << "` with pattern `" << pattern << "`");
@@ -180,6 +171,7 @@ void InotifyServer::addWatch(const std::string& path, const notifier_t& notifier
           auto linked = std::filesystem::read_symlink(filename);
           DEBUG("Path: `" << filename << "` is symlink. Recursive add watch to source `" << linked.string() << "`...");
           addWatch(linked.string(), notifier);
+          notify(watchDescriptor, std::make_unique<Event>(watchDescriptor, event_t::_INIT, p.path().filename()));
         } else {
           DEBUG("Path: `" << filename << "` is file. Initial read from matched file...");
           notify(watchDescriptor, std::make_unique<Event>(watchDescriptor, event_t::_INIT, p.path().filename()));
@@ -193,6 +185,21 @@ void InotifyServer::addWatch(const std::string& path, const notifier_t& notifier
   }
 
   TRACE("InotifyServer::addWatch() <-");
+}
+
+void InotifyServer::removeWatch(const std::string& path) {
+  DEBUG("Remove Watch to path: `" << path << "`");
+
+  auto [directory, pattern] = makeWatchPath(path);
+
+  if (auto watchPtr = m_watchDescriptorsMap.findByWatchPath(directory, pattern); watchPtr) {
+    DEBUG("Found path for remove WD: " << *watchPtr);
+    auto watchDescriptor = watchPtr->getWatchDescriptor();
+    m_watchDescriptorsMap.removeWatch(std::move(watchPtr));
+    if (auto result = inotify_rm_watch(m_inotify_fd, watchDescriptor); result) {
+      ERROR("Inotify remove watch failed WD: " << watchDescriptor << " Error code: " << strerror(errno));
+    }
+  }
 }
 
 void InotifyServer::initImpl(std::any) {
@@ -231,42 +238,4 @@ void InotifyServer::stopImpl() {
 
 InotifyServer::~InotifyServer() {
   DEBUG("InotifyServer::~InotifyServer()");
-}
-
-InotifyServer::Watch::Watch(InotifyServer& inotifyServer, std::string directory) :
-    m_inotifyServer(inotifyServer), m_directory(std::move(directory)) {
-  DEBUG("InotifyServer::Watch::Watch(" << m_directory << ")");
-}
-
-void InotifyServer::Watch::addNotifier(notifier_t notifier, const std::string& pattern) {
-  DEBUG("InotifyServer::Watch::addNotifier(" << pattern << ")");
-  m_notifiers.emplace_back(
-      std::make_unique<InotifyServer::Watch::WatchNotifier>(std::regex(pattern), std::move(notifier)));
-}
-
-void InotifyServer::Watch::notify(EventPtr eventPtr) const {
-  DEBUG("Notify: " << eventPtr->m_watchDescriptor << " Name: " << eventPtr->m_filename
-                   << " Type: " << eventPtr->m_eventType);
-
-  auto filename = m_directory + '/' + eventPtr->m_filename;
-
-  for (auto& notifier : m_notifiers) {
-    if (std::regex_match(filename, notifier->m_regex)) {
-      DEBUG("Event match: " << filename);
-
-      if (std::filesystem::is_directory(filename)) {
-        DEBUG("Path: `" << filename << "` is directory. Recursive add watch to directory...");
-        m_inotifyServer.addWatch(filename, notifier->m_notifier);
-      } else if (std::filesystem::is_symlink(filename)) {
-        auto linked = std::filesystem::read_symlink(filename);
-        DEBUG("Path: `" << filename << "` is symlink. Recursive add watch to source `" << linked.string() << "`...");
-        m_inotifyServer.addWatch(linked.string(), notifier->m_notifier);
-      } else {
-        DEBUG("Path: `" << filename << "` is file. Notify...");
-        notifier->m_notifier(std::make_unique<Event>(eventPtr->m_watchDescriptor, eventPtr->m_eventType, filename));
-      }
-    } else {
-      DEBUG("Event not match: " << filename);
-    }
-  }
 }

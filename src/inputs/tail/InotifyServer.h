@@ -14,12 +14,14 @@
 #include <iostream>
 #include <regex>
 #include <sys/inotify.h>
-#include <tbb/concurrent_hash_map.h>
+//#include <tbb/concurrent_hash_map.h>
 
 #include "Event.h"
 #include "core/Log.h"
 #include "core/Singleton.h"
 #include "core/TaskInterface.h"
+#include "WatchDescriptorsMap.h"
+#include "Watch.h"
 
 namespace iqlogger::inputs::tail {
 
@@ -27,39 +29,16 @@ class InotifyServer : public Singleton<InotifyServer>, public TaskInterface
 {
   friend class Singleton<InotifyServer>;
 
-  class Watch
-  {
-    struct WatchNotifier {
-      const std::regex m_regex;
-      const notifier_t m_notifier;
-
-      explicit WatchNotifier(std::regex regex, notifier_t notifier) :
-          m_regex(std::move(regex)), m_notifier(std::move(notifier)) {}
-    };
-
-    using WatchNotifierPtr = std::unique_ptr<WatchNotifier>;
-
-    InotifyServer& m_inotifyServer;
-    const std::string m_directory;
-    std::vector<WatchNotifierPtr> m_notifiers;
-
-  public:
-    explicit Watch(InotifyServer& inotifyServer, std::string directory);
-    void addNotifier(notifier_t notifier, const std::string& pattern);
-    void notify(EventPtr eventPtr) const;
-  };
-
   constexpr static size_t buffer_size = 4096;
-  constexpr static size_t inotify_threads_num = 2;
+  constexpr static size_t inotify_threads_num = 1;
   constexpr static uint32_t inotify_events = (IN_ALL_EVENTS | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_MODIFY);
 
-  using WatchPtr = std::unique_ptr<Watch>;
-  using WatchDescriptorsMap = tbb::concurrent_hash_map<fd_t, WatchPtr>;
   using buffer_t = std::array<char, buffer_size>;
 
 public:
   virtual ~InotifyServer();
-  void addWatch(const std::string& path, const notifier_t& notifier, bool fileOnlyMode = false);
+  void addWatch(const std::string& path, const notifier_t& notifier);
+  void removeWatch(const std::string& path);
 
 protected:
   void initImpl(std::any) override;
@@ -68,6 +47,8 @@ protected:
 
 private:
   InotifyServer();
+
+  static std::pair<std::string, std::string> makeWatchPath(const std::string& path);
 
   void begin_read();
   void end_read(const boost::system::error_code& ec, std::size_t bytes_transferred);

@@ -32,12 +32,7 @@ struct Event {
   EventType m_eventType;
   std::string m_filename;
 
-  template<typename T>
-  explicit Event(fd_t wd, EventType event, T&& filename) :
-      m_watchDescriptor(wd), m_eventType(event), m_filename(std::forward<std::string>(filename)) {
-    DEBUG("Event::Event(" << m_watchDescriptor << ", " << event_to_str(m_eventType).data() << ", " << m_filename
-                          << ")");
-  }
+  explicit Event(fd_t wd, EventType event, std::string filename);
 
   ~Event() { DEBUG("Event::~Event()"); }
 
