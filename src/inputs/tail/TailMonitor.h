@@ -8,22 +8,21 @@
 
 #pragma once
 
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <sstream>
-
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/regex.hpp>
 
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <tbb/concurrent_hash_map.h>
+
 #include "Exception.h"
-#include "MessageQueue.h"
-
 #include "InotifyServer.h"
-#include "inputs/Record.h"
-
+#include "MessageQueue.h"
 #include "formats/tail/TailMessage.h"
+#include "inputs/Record.h"
 
 using namespace iqlogger::formats::tail;
 
@@ -59,23 +58,25 @@ class TailMonitor
 
     bool m_firstRead = false;
 
+    std::optional<std::string> m_symlinkPath;
+
     void processBuffer(std::string_view buffer);
     void processMessage(std::string_view buffer);
 
     void savePosition() const;
 
   public:
-    explicit PointersTableInternalRecord(std::string name, const std::string& file, DelimiterRegex startmsg_regex,
+    explicit PointersTableInternalRecord(std::string name, std::string file, DelimiterRegex startmsg_regex,
                                          RecordQueuePtr<Tail> queuePtr, bool followOnly, bool saveState);
 
-    virtual ~PointersTableInternalRecord();
+    ~PointersTableInternalRecord();
 
     void process();
     void flush();
 
-    fd_t getHandle() const;
     std::string getCurrentFileName() const;
 
+    const std::optional<std::string>& getSymlinkPath() const { return m_symlinkPath; }
     void rename(const std::string& filename);
   };
 
@@ -102,7 +103,7 @@ class TailMonitor
     return queue_buffer;
   }
 
-  PointersTableInternalRecordPtr createRecord(const std::string& filename) const;
+  [[nodiscard]] PointersTableInternalRecordPtr createRecord(const std::string& filename) const;
 
   void modify(const std::string& filename);
   void create(const std::string& filename);

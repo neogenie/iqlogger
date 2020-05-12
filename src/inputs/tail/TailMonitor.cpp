@@ -84,13 +84,22 @@ void TailMonitor::move(const std::string& filename) {
 void TailMonitor::remove(const std::string& filename) {
   DEBUG("TailMonitor::remove(" << filename << ")");
 
-  PointersTableInternal::accessor accessor;
-  if (m_internalTable->find(accessor, filename)) {
-    m_internalTable->erase(accessor);
+  std::optional<std::string> symlinkPath;
 
-    SavePositionServer::getInstance()->erasePosition(filename);
-  } else {
-    WARNING("Internal Pointer of deleted entry not found!");
+  {
+    PointersTableInternal::accessor accessor;
+    if (m_internalTable->find(accessor, filename)) {
+      symlinkPath = accessor->second->getSymlinkPath();
+      m_internalTable->erase(accessor);
+      SavePositionServer::getInstance()->erasePosition(filename);
+    } else {
+      WARNING("Internal Pointer of deleted entry not found!");
+    }
+  }
+
+  if (symlinkPath) {
+    DEBUG("Removed Pointer is symlink to: " << symlinkPath.value());
+    InotifyServer::getInstance()->removeWatch(symlinkPath.value());
   }
 }
 
@@ -111,13 +120,10 @@ size_t TailMonitor::run() {
       auto type = queue_buffer[i]->m_eventType;
       auto filename = queue_buffer[i]->m_filename;
 
-      TRACE("Fetch " << type << " from WD: " << wd);
+      TRACE("Fetch " << type << " from WD: " << wd << " File: " << filename);
 
       switch (type) {
       case event_t::_INIT:
-        create(filename);
-        break;
-
       case event_t::CREATE:
         create(filename);
         break;
@@ -145,7 +151,7 @@ size_t TailMonitor::run() {
 }
 
 void TailMonitor::flush() {
-  DEBUG("TailMonitor::flush()");
+  //  DEBUG("TailMonitor::flush()");
 
   for (auto it = m_internalTable->begin(); it != m_internalTable->end(); ++it) {
     PointersTableInternal::const_accessor accessor;
@@ -156,21 +162,30 @@ void TailMonitor::flush() {
   }
 }
 
-TailMonitor::PointersTableInternalRecord::PointersTableInternalRecord(std::string name, const std::string& file,
+TailMonitor::PointersTableInternalRecord::PointersTableInternalRecord(std::string name, std::string file,
                                                                       DelimiterRegex startmsg_regex,
                                                                       RecordQueuePtr<Tail> queuePtr, bool followOnly,
                                                                       bool saveState) :
     m_name(std::move(name)),
-    m_fileName(file),
+    m_fileName(std::move(file)),
     m_fileDescriptor(boost::iostreams::file_descriptor_source(m_fileName)),
     m_fileStream(m_fileDescriptor),
     m_fileCurrentPosition(0),
-    m_startMsgRegEx(startmsg_regex),
-    m_queuePtr(queuePtr),
+    m_startMsgRegEx(std::move(startmsg_regex)),
+    m_queuePtr(std::move(queuePtr)),
     m_followOnly(followOnly),
     m_saveState(saveState) {
-  TRACE("TailMonitor::PointersTableInternalRecord::PointersTableInternalRecord()");
-  DEBUG("New PointersTableInternalRecord " << m_fileName << " (FD: " << m_fileDescriptor.handle() << ")");
+  DEBUG("PointersTableInternalRecord(`" << m_name << "`, `" << m_fileName << "`) FD: " << m_fileDescriptor.handle()
+                                        << "");
+
+  try {
+    if (std::filesystem::is_symlink(m_fileName)) {
+      DEBUG("File name: `" << m_fileName << "` is symlink...");
+      m_symlinkPath = std::filesystem::read_symlink(m_fileName).string();
+    }
+  } catch (const std::filesystem::filesystem_error& e) {
+    ERROR("Error read from FS: " << e.what());
+  }
 
   if (m_saveState) {
     auto savedPosition = SavePositionServer::getInstance()->getSavedPosition(m_fileName);
@@ -185,7 +200,12 @@ TailMonitor::PointersTableInternalRecordPtr TailMonitor::createRecord(const std:
 }
 
 void TailMonitor::PointersTableInternalRecord::process() {
-  TRACE("TailMonitor::PointersTableInternalRecord::process(" << m_fileDescriptor.handle() << ")");
+  DEBUG("TailMonitor::PointersTableInternalRecord::process(" << m_fileDescriptor.handle() << ")");
+
+  if (m_symlinkPath) {
+    DEBUG("PointersTableInternalRecord " << m_fileName << " is symlink... Ignore.");
+    return;
+  }
 
   if (!m_fileStream.is_open()) {
     WARNING("FD not opened... " << m_fileName);
@@ -326,10 +346,6 @@ void TailMonitor::PointersTableInternalRecord::processMessage(std::string_view b
   }
 }
 
-fd_t TailMonitor::PointersTableInternalRecord::getHandle() const {
-  return m_fileDescriptor.handle();
-}
-
 std::string TailMonitor::PointersTableInternalRecord::getCurrentFileName() const {
   std::string proc = "/proc/self/fd/" + std::to_string(m_fileDescriptor.handle());
   DEBUG("Check: " << proc);
@@ -348,7 +364,7 @@ void TailMonitor::PointersTableInternalRecord::rename(const std::string& filenam
 }
 
 TailMonitor::PointersTableInternalRecord::~PointersTableInternalRecord() {
-  TRACE("TailMonitor::PointersTableInternalRecord::~PointersTableInternalRecord()");
+  DEBUG("TailMonitor::PointersTableInternalRecord::~PointersTableInternalRecord()");
 }
 
 void TailMonitor::PointersTableInternalRecord::savePosition() const {

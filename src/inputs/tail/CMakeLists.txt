@@ -1,4 +1,4 @@
-add_library(${PROJECT_NAME}_input_tail Input.cpp CheckConfig.cpp TailInput.cpp TailMonitor.cpp InotifyServer.cpp Event.cpp SavePositionServer.cpp)
+add_library(${PROJECT_NAME}_input_tail Watch.cpp WatchDescriptorsMap.cpp Input.cpp CheckConfig.cpp TailInput.cpp TailMonitor.cpp InotifyServer.cpp Event.cpp SavePositionServer.cpp)
 
 if (APPLE)
     find_library(

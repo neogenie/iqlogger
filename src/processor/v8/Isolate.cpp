@@ -15,8 +15,7 @@ using namespace iqlogger;
 using namespace iqlogger::processor::V8;
 
 Isolate::Isolate(unsigned short processorIndex) :
-    m_processorIndex(processorIndex),
-    m_isolate([& create_params = m_create_params]() {
+    m_processorIndex(processorIndex), m_isolate([&create_params = m_create_params]() {
       create_params.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
       return v8::Isolate::New(create_params);
     }()) {
@@ -24,7 +23,7 @@ Isolate::Isolate(unsigned short processorIndex) :
 
   metrics::MetricsController::getInstance()->registerMetric(
       "processor." + std::to_string(m_processorIndex) + ".heap_size",
-      [& heap_size = m_heap_size]() { return heap_size.load(); });
+      [&heap_size = m_heap_size]() { return heap_size.load(); });
 }
 
 Isolate::~Isolate() {
@@ -38,7 +37,6 @@ v8::Isolate* Isolate::getIsolate() const {
 }
 
 void Isolate::collectStats() const {
-  TRACE("Isolate::collectStats()");
   v8::HeapStatistics stats;
   m_isolate->GetHeapStatistics(&stats);
   m_heap_size.store(stats.total_heap_size());

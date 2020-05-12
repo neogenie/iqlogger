@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
 
     if (vm.count("version")) {
       std::cout << "IQLogger v. " << IQLOGGER_VERSION << std::endl
-                << "Copyright (C) 2018 IQOption Software, Inc." << std::endl;
+                << "Copyright (C) 2018-2020 IQOption Software, Inc." << std::endl;
       return 0;
     }
 
