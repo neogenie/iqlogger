@@ -38,8 +38,7 @@ class TailMonitor
     using read_buffer_t = std::array<char, read_buffer_size>;
 
     const std::string m_name;
-
-    std::string m_fileName;
+    TailSource m_source;
 
     boost::iostreams::file_descriptor_source m_fileDescriptor;
     boost::iostreams::stream<boost::iostreams::file_descriptor_source> m_fileStream;
@@ -66,7 +65,7 @@ class TailMonitor
     void savePosition() const;
 
   public:
-    explicit PointersTableInternalRecord(std::string name, std::string file, DelimiterRegex startmsg_regex,
+    explicit PointersTableInternalRecord(std::string name, TailSource source, DelimiterRegex startmsg_regex,
                                          RecordQueuePtr<Tail> queuePtr, bool followOnly, bool saveState);
 
     ~PointersTableInternalRecord();
@@ -103,12 +102,12 @@ class TailMonitor
     return queue_buffer;
   }
 
-  [[nodiscard]] PointersTableInternalRecordPtr createRecord(const std::string& filename) const;
+  [[nodiscard]] PointersTableInternalRecordPtr createRecord(TailSource source) const;
 
-  void modify(const std::string& filename);
-  void create(const std::string& filename);
-  void move(const std::string& filename);
-  void remove(const std::string& filename);
+  void modify(TailSource source);
+  void create(TailSource source);
+  void move(TailSource source);
+  void remove(TailSource source);
 
 public:
   TailMonitor(const std::string& name, RecordQueuePtr<Tail> queuePtr, DelimiterRegex&& startmsg_regex,

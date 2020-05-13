@@ -43,67 +43,69 @@ void InotifyServer::end_read(const boost::system::error_code& ec, std::size_t by
     while (m_pending_read_buffer.size() >= sizeof(inotify_event)) {
       const auto* iev = reinterpret_cast<const inotify_event*>(m_pending_read_buffer.data());
 
-      DEBUG("Inotify event WD: " << iev->wd << " Name: " << iev->name);
+      auto wd = iev->wd;
+      auto filename = iev->name;
+      auto mask = iev->mask;
 
-      switch (iev->mask) {
+      DEBUG("Inotify event WD: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
+
+      switch (mask) {
       case IN_ACCESS:
-        DEBUG("Inotify IN_ACCESS: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_ACCESS: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
         break;
 
       case IN_OPEN:
-        DEBUG("Inotify IN_OPEN: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_OPEN: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
         break;
 
       case IN_CLOSE_NOWRITE:
-        DEBUG("Inotify IN_CLOSE_NOWRITE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_CLOSE_NOWRITE: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
         break;
 
       case IN_CLOSE_WRITE:
-        DEBUG("Inotify IN_CLOSE_WRITE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
-        // notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::MODIFY, iev->name));
+        DEBUG("Inotify IN_CLOSE_WRITE: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
         break;
 
       case IN_CREATE:
-        DEBUG("Inotify CREATE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
-        notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::CREATE, iev->name));
+        DEBUG("Inotify CREATE: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
+        notify(wd, std::make_unique<Event>(wd, Event::EventType::CREATE, TailSource(filename)));
         break;
 
       case IN_ATTRIB:
-        DEBUG("Inotify IN_ATTRIB: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_ATTRIB: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
         break;
 
       case IN_DELETE:
-        DEBUG("Inotify DELETE: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
-        notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::DELETE, iev->name));
+        DEBUG("Inotify DELETE: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
+        notify(wd, std::make_unique<Event>(wd, Event::EventType::DELETE, TailSource(filename)));
         break;
 
       case IN_MOVED_FROM:
-        DEBUG("Inotify MOVED_FROM: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
-        notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::MOVE, iev->name));
+        DEBUG("Inotify MOVED_FROM: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
+        notify(wd, std::make_unique<Event>(wd, Event::EventType::MOVE, TailSource(filename)));
         break;
 
       case IN_MOVED_TO:
-        DEBUG("Inotify MOVED_TO: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
-        notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::CREATE, iev->name));
+        DEBUG("Inotify MOVED_TO: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
+        notify(wd, std::make_unique<Event>(wd, Event::EventType::CREATE, TailSource(filename)));
         break;
 
       case IN_CREATE | IN_ISDIR:
-        DEBUG("Inotify IN_CREATE | IN_ISDIR: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex
-                                               << iev->mask);
-        notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::CREATE, iev->name));
+        DEBUG("Inotify IN_CREATE | IN_ISDIR: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
+        notify(wd, std::make_unique<Event>(wd, Event::EventType::CREATE, TailSource(filename)));
         break;
 
       case IN_MOVE_SELF:
-        DEBUG("Inotify IN_MOVE_SELF: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Inotify IN_MOVE_SELF: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
         break;
 
       case IN_MODIFY:
-        DEBUG("Inotify MODIFY: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
-        notify(iev->wd, std::make_unique<Event>(iev->wd, event_t::MODIFY, iev->name));
+        DEBUG("Inotify MODIFY: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
+        notify(wd, std::make_unique<Event>(wd, Event::EventType::MODIFY, TailSource(filename)));
         break;
 
       default:
-        DEBUG("Not expected event: " << iev->wd << " Name: " << iev->name << " Mask: " << std::hex << iev->mask);
+        DEBUG("Not expected event: " << wd << " Name: " << filename << " Mask: " << std::hex << mask);
       }
 
       m_pending_read_buffer.erase(0, sizeof(inotify_event) + iev->len);
@@ -116,8 +118,7 @@ void InotifyServer::end_read(const boost::system::error_code& ec, std::size_t by
 }
 
 void InotifyServer::notify(fd_t watchDescriptor, EventPtr eventPtr) {
-  DEBUG("InotifyServer::notify(): " << watchDescriptor << " Name: " << eventPtr->m_filename
-                                    << " Type: " << eventPtr->m_eventType);
+  DEBUG("InotifyServer::notify(): " << watchDescriptor << " Event: " << *eventPtr);
 
   if (auto watchPtr = m_watchDescriptorsMap.findByWatchDescriptor(watchDescriptor); watchPtr) {
     DEBUG("Found path notify WD: " << *watchPtr);
@@ -170,11 +171,18 @@ void InotifyServer::addWatch(const std::string& path, const notifier_t& notifier
         } else if (std::filesystem::is_symlink(filename)) {
           auto linked = std::filesystem::read_symlink(filename);
           DEBUG("Path: `" << filename << "` is symlink. Recursive add watch to source `" << linked.string() << "`...");
-          addWatch(linked.string(), notifier);
-          notify(watchDescriptor, std::make_unique<Event>(watchDescriptor, event_t::_INIT, p.path().filename()));
+          auto notifierHandler = [notifier, filename](EventPtr eventPtr) {
+            DEBUG("Notifier Event Changer: " << *eventPtr);
+            notifier(std::make_unique<Event>(eventPtr->m_watchDescriptor, eventPtr->m_eventType,
+                                             TailSource(eventPtr->m_source.getFilename(), filename)));
+          };
+          addWatch(linked.string(), notifierHandler);
+          notify(watchDescriptor,
+                 std::make_unique<Event>(watchDescriptor, Event::EventType::_INIT, TailSource(p.path().filename())));
         } else {
           DEBUG("Path: `" << filename << "` is file. Initial read from matched file...");
-          notify(watchDescriptor, std::make_unique<Event>(watchDescriptor, event_t::_INIT, p.path().filename()));
+          notify(watchDescriptor,
+                 std::make_unique<Event>(watchDescriptor, Event::EventType::_INIT, TailSource(p.path().filename())));
         }
       } else {
         DEBUG("NOT Initial read from not matched file: " << filename);

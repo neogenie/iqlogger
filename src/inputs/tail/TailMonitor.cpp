@@ -26,8 +26,7 @@ TailMonitor::TailMonitor(const std::string& name, RecordQueuePtr<Tail> queuePtr,
   TRACE("TailMonitor::TailMonitor()");
 
   auto notifier = [this](EventPtr eventPtr) {
-    TRACE("Notifier: " << eventPtr->m_watchDescriptor << " EventType: " << eventPtr->m_eventType
-                       << " File: " << eventPtr->m_filename);
+    DEBUG("Notifier Event: " << *eventPtr);
     m_inotifyQueuePtr->enqueue(std::move(eventPtr));
   };
 
@@ -35,24 +34,28 @@ TailMonitor::TailMonitor(const std::string& name, RecordQueuePtr<Tail> queuePtr,
   InotifyServer::getInstance()->addWatch(path, notifier);
 }
 
-void TailMonitor::modify(const std::string& filename) {
-  DEBUG("TailMonitor::modify(" << filename << ")");
+void TailMonitor::modify(TailSource source) {
+  DEBUG("TailMonitor::modify(" << source << ")");
+
+  const auto& filename = source.getFilename();
 
   PointersTableInternal::accessor accessor;
   if (m_internalTable->insert(accessor, filename)) {
-    accessor->second = createRecord(filename);
+    accessor->second = createRecord(std::move(source));
   }
 
   accessor->second->process();
 }
 
-void TailMonitor::create(const std::string& filename) {
-  DEBUG("TailMonitor::create(" << filename << ")");
-  modify(filename);
+void TailMonitor::create(TailSource source) {
+  DEBUG("TailMonitor::create(" << source << ")");
+  modify(std::move(source));
 }
 
-void TailMonitor::move(const std::string& filename) {
-  DEBUG("TailMonitor::move(" << filename << ")");
+void TailMonitor::move(TailSource source) {
+  DEBUG("TailMonitor::move(" << source << ")");
+
+  const auto& filename = source.getFilename();
 
   {
     PointersTableInternal::const_accessor accessor;
@@ -81,8 +84,10 @@ void TailMonitor::move(const std::string& filename) {
   }
 }
 
-void TailMonitor::remove(const std::string& filename) {
-  DEBUG("TailMonitor::remove(" << filename << ")");
+void TailMonitor::remove(TailSource source) {
+  DEBUG("TailMonitor::remove(" << source << ")");
+
+  const auto& filename = source.getFilename();
 
   std::optional<std::string> symlinkPath;
 
@@ -116,33 +121,34 @@ size_t TailMonitor::run() {
     std::size_t i;
 
     for (i = 0; i < count; ++i) {
-      auto wd = queue_buffer[i]->m_watchDescriptor;
-      auto type = queue_buffer[i]->m_eventType;
-      auto filename = queue_buffer[i]->m_filename;
+      const auto& eventPtr = queue_buffer[i];
 
-      TRACE("Fetch " << type << " from WD: " << wd << " File: " << filename);
+      DEBUG("Fetch Event: " << *eventPtr);
+
+      auto type = eventPtr->m_eventType;
+      auto source = eventPtr->m_source;
 
       switch (type) {
-      case event_t::_INIT:
-      case event_t::CREATE:
-        create(filename);
+      case Event::EventType::_INIT:
+      case Event::EventType::CREATE:
+        create(source);
         break;
 
-      case event_t::MODIFY:
-        modify(filename);
+      case Event::EventType::MODIFY:
+        modify(source);
         break;
 
-      case event_t::MOVE:
-        move(filename);
+      case Event::EventType::MOVE:
+        move(source);
         break;
 
-      case event_t::DELETE:
-        remove(filename);
+      case Event::EventType::DELETE:
+        remove(source);
         break;
 
       default:
 
-        WARNING("Unknown event " << type);
+        WARNING("Unknown event type: " << type);
       }
     }
   }
@@ -162,53 +168,57 @@ void TailMonitor::flush() {
   }
 }
 
-TailMonitor::PointersTableInternalRecord::PointersTableInternalRecord(std::string name, std::string file,
+TailMonitor::PointersTableInternalRecord::PointersTableInternalRecord(std::string name, TailSource source,
                                                                       DelimiterRegex startmsg_regex,
                                                                       RecordQueuePtr<Tail> queuePtr, bool followOnly,
                                                                       bool saveState) :
     m_name(std::move(name)),
-    m_fileName(std::move(file)),
-    m_fileDescriptor(boost::iostreams::file_descriptor_source(m_fileName)),
+    m_source(std::move(source)),
+    m_fileDescriptor(boost::iostreams::file_descriptor_source(m_source.getFilename())),
     m_fileStream(m_fileDescriptor),
     m_fileCurrentPosition(0),
     m_startMsgRegEx(std::move(startmsg_regex)),
     m_queuePtr(std::move(queuePtr)),
     m_followOnly(followOnly),
     m_saveState(saveState) {
-  DEBUG("PointersTableInternalRecord(`" << m_name << "`, `" << m_fileName << "`) FD: " << m_fileDescriptor.handle()
+  DEBUG("PointersTableInternalRecord(`" << m_name << "`, `" << m_source << "`) FD: " << m_fileDescriptor.handle()
                                         << "");
 
+  const auto& filename = m_source.getFilename();
+
   try {
-    if (std::filesystem::is_symlink(m_fileName)) {
-      DEBUG("File name: `" << m_fileName << "` is symlink...");
-      m_symlinkPath = std::filesystem::read_symlink(m_fileName).string();
+    if (std::filesystem::is_symlink(filename)) {
+      DEBUG("File name: `" << filename << "` is symlink...");
+      m_symlinkPath = std::filesystem::read_symlink(filename).string();
     }
   } catch (const std::filesystem::filesystem_error& e) {
     ERROR("Error read from FS: " << e.what());
   }
 
   if (m_saveState) {
-    auto savedPosition = SavePositionServer::getInstance()->getSavedPosition(m_fileName);
-    DEBUG("New PointersTableInternalRecord " << m_fileName << " (Saved State Position: " << savedPosition << ")");
+    auto savedPosition = SavePositionServer::getInstance()->getSavedPosition(filename);
+    DEBUG("New PointersTableInternalRecord " << filename << " (Saved State Position: " << savedPosition << ")");
     m_fileCurrentPosition = savedPosition;
   }
 }
 
-TailMonitor::PointersTableInternalRecordPtr TailMonitor::createRecord(const std::string& filename) const {
-  return std::make_unique<PointersTableInternalRecord>(m_name, filename, m_startMsgRegEx, m_queuePtr, m_followOnly,
-                                                       m_saveState);
+TailMonitor::PointersTableInternalRecordPtr TailMonitor::createRecord(TailSource source) const {
+  return std::make_unique<PointersTableInternalRecord>(m_name, std::move(source), m_startMsgRegEx, m_queuePtr,
+                                                       m_followOnly, m_saveState);
 }
 
 void TailMonitor::PointersTableInternalRecord::process() {
   DEBUG("TailMonitor::PointersTableInternalRecord::process(" << m_fileDescriptor.handle() << ")");
 
+  const auto& filename = m_source.getFilename();
+
   if (m_symlinkPath) {
-    DEBUG("PointersTableInternalRecord " << m_fileName << " is symlink... Ignore.");
+    DEBUG("PointersTableInternalRecord " << filename << " is symlink... Ignore.");
     return;
   }
 
   if (!m_fileStream.is_open()) {
-    WARNING("FD not opened... " << m_fileName);
+    WARNING("FD not opened... " << filename);
     return;
   }
 
@@ -216,7 +226,7 @@ void TailMonitor::PointersTableInternalRecord::process() {
   Position filesize = m_fileStream.tellg();
 
   if (filesize == std::ios::pos_type(-1)) {
-    WARNING("Detected truncation of file " << m_fileName << " while read...");
+    WARNING("Detected truncation of file " << filename << " while read...");
     m_fileCurrentPosition = 0;
     m_fileStream.clear();
     return;
@@ -226,10 +236,10 @@ void TailMonitor::PointersTableInternalRecord::process() {
 
   size_t added = filesize - m_fileCurrentPosition;
 
-  TRACE("Detected add " << added << " bytes to file " << m_fileName);
+  TRACE("Detected add " << added << " bytes to file " << filename);
 
   if (added > 0 && (!m_firstRead && m_followOnly)) {
-    DEBUG("Initial file " << m_fileName << " size detected: " << filesize << ". Follow only mode: skip!");
+    DEBUG("Initial file " << filename << " size detected: " << filesize << ". Follow only mode: skip!");
     m_fileCurrentPosition = filesize;
     m_firstRead = true;
     return;
@@ -338,7 +348,7 @@ void TailMonitor::PointersTableInternalRecord::processMessage(std::string_view b
   TRACE("Got tail message: " << buffer);
 
   try {
-    if (!m_queuePtr->enqueue(std::make_unique<Record<Tail>>(m_name, std::string(buffer), m_fileName))) {
+    if (!m_queuePtr->enqueue(std::make_unique<Record<Tail>>(m_name, std::string(buffer), m_source))) {
       ERROR("Journal Input queue is full... Dropping...");
     }
   } catch (const Exception& e) {
@@ -356,11 +366,11 @@ std::string TailMonitor::PointersTableInternalRecord::getCurrentFileName() const
     return path.string();
   }
 
-  return m_fileName;
+  return m_source.getFilename();
 }
 
 void TailMonitor::PointersTableInternalRecord::rename(const std::string& filename) {
-  m_fileName = filename;
+  m_source.setFilename(filename);
 }
 
 TailMonitor::PointersTableInternalRecord::~PointersTableInternalRecord() {
@@ -369,6 +379,6 @@ TailMonitor::PointersTableInternalRecord::~PointersTableInternalRecord() {
 
 void TailMonitor::PointersTableInternalRecord::savePosition() const {
   if (m_saveState) {
-    SavePositionServer::getInstance()->savePosition(m_fileName, m_fileCurrentPosition - m_buffer.size());
+    SavePositionServer::getInstance()->savePosition(m_source.getFilename(), m_fileCurrentPosition - m_buffer.size());
   }
 }

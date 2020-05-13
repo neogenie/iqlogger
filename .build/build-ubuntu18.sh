@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export IQLOGGER_STATIC_GLIBC=1
 cmake .
 
 CNT=$(which nproc > /dev/null && expr $(nproc --all) / 2 || echo 4)
