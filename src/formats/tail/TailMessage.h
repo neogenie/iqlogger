@@ -13,6 +13,7 @@
 #include <sstream>
 
 #include "Exception.h"
+#include "TailSource.h"
 #include "formats/Message.h"
 #include "formats/MessageInterface.h"
 #include "rapidjson/stringbuffer.h"
@@ -22,14 +23,12 @@ namespace iqlogger::formats::tail {
 
 class TailMessage : public MessageInterface, public Message
 {
-  std::string m_data;
-  std::string m_filename;
-
 public:
-  using SourceT = std::string;
+  using SourceT = TailSource;
 
   template<typename T, typename U>
-  explicit TailMessage(std::string input, T&& data, U&& filename) : Message(std::move(input)), m_data(std::forward<T>(data)), m_filename(std::forward<U>(filename)){};
+  explicit TailMessage(std::string input, T&& data, U&& source) :
+      Message(std::move(input)), m_data(std::forward<T>(data)), m_source(std::forward<U>(source)){};
 
   template<typename T, typename = std::enable_if_t<std::is_same<std::string, std::decay_t<T>>::value>>
   explicit TailMessage(std::string input, T&& json) : Message(std::move(input)) {
@@ -42,8 +41,15 @@ public:
         m_data = j.at("data").get<std::string>();
       }
 
-      m_filename = j.at("filename").get<std::string>();
-    } catch (std::exception& e) {
+      auto filename = j.at("filename").get<std::string>();
+
+      try {
+        auto symlinkFilename = j.at("symlink_filename").get<std::string>();
+        m_source = TailSource(std::move(filename), std::move(symlinkFilename));
+      } catch (const std::exception& e) {
+        m_source = TailSource(std::move(filename));
+      }
+    } catch (const std::exception& e) {
       std::ostringstream oss;
       oss << "Coudn't construct Tail message from " << json << ":" << e.what() << std::endl;
       throw Exception(oss.str());
@@ -54,9 +60,9 @@ public:
 
   [[nodiscard]] std::string exportMessage() const override { return m_data; }
 
-  [[nodiscard]] std::string getFilename() const { return m_filename; }
-
-  [[nodiscard]] std::string getSource() const { return m_filename; }
+  [[nodiscard]] std::string getFilename() const { return m_source.getFilename(); }
+  //
+  //  [[nodiscard]] std::string getSource() const { return m_filename; }
 
   [[nodiscard]] std::string exportMessage2Json() const override {
     rapidjson::StringBuffer s;
@@ -66,7 +72,13 @@ public:
     writer.Key("data");
     writer.String(m_data);
     writer.Key("filename");
-    writer.String(m_filename);
+    writer.String(m_source.getFilename());
+
+    if (const auto& symlinkFilename = m_source.getSymlinkFilename(); symlinkFilename) {
+      writer.Key("symlink_filename");
+      writer.String(symlinkFilename.value());
+    }
+
     writer.Key("input");
     writer.String(getInput());
     writer.EndObject();
@@ -74,5 +86,9 @@ public:
   }
 
   ~TailMessage() = default;
+
+private:
+  std::string m_data;
+  SourceT m_source;
 };
 }  // namespace iqlogger::formats::tail

@@ -25,10 +25,9 @@ Watch::Watch(InotifyServer& inotifyServer, fd_t watchDescriptor, std::string dir
 }
 
 void Watch::notify(EventPtr eventPtr) const {
-  DEBUG("Notify: " << eventPtr->m_watchDescriptor << " Name: " << eventPtr->m_filename
-                   << " Type: " << eventPtr->m_eventType);
+  DEBUG("Notify Event: " << *eventPtr);
 
-  auto filename = getWatchDirectory() + '/' + eventPtr->m_filename;
+  auto filename = getWatchDirectory() + '/' + eventPtr->m_source.getFilename();
 
   if (std::regex_match(filename, m_regex)) {
     DEBUG("Event match: " << filename);
@@ -39,11 +38,16 @@ void Watch::notify(EventPtr eventPtr) const {
     } else if (std::filesystem::is_symlink(filename)) {
       auto linked = std::filesystem::read_symlink(filename);
       DEBUG("Path: `" << filename << "` is symlink. Recursive add watch to source `" << linked.string() << "`...");
-      m_inotifyServer.addWatch(linked.string(), m_notifier);
-      m_notifier(std::make_unique<Event>(eventPtr->m_watchDescriptor, eventPtr->m_eventType, filename));
+      auto notifier = [notifier = m_notifier, filename](EventPtr eventPtr) {
+        DEBUG("Notifier Event Changer: " << *eventPtr);
+        notifier(std::make_unique<Event>(eventPtr->m_watchDescriptor, eventPtr->m_eventType,
+                                         TailSource(eventPtr->m_source.getFilename(), filename)));
+      };
+      m_inotifyServer.addWatch(linked.string(), notifier);
+      m_notifier(std::make_unique<Event>(eventPtr->m_watchDescriptor, eventPtr->m_eventType, TailSource(filename)));
     } else {
       DEBUG("Path: `" << filename << "` is file. Notify...");
-      m_notifier(std::make_unique<Event>(eventPtr->m_watchDescriptor, eventPtr->m_eventType, filename));
+      m_notifier(std::make_unique<Event>(eventPtr->m_watchDescriptor, eventPtr->m_eventType, TailSource(filename)));
     }
   } else {
     DEBUG("Event not match: " << filename);
