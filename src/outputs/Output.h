@@ -33,27 +33,35 @@ public:
   bool importMessages(message_ptr_buffer_t::const_iterator it, size_t count) const override {
     auto& buffer = getRecordPtrBuffer();
 
+    std::size_t imported = 0;
     for (size_t i = 0; i < count; ++i) {
       const Message& message = *(*(it + i));
 
-      RecordPtr<T> recordPtr;
+      try {
+        RecordPtr<T> recordPtr;
 
-      std::visit(
-          [&recordPtr](const auto& mess) {
-            recordPtr = std::make_unique<Record<T>>(mess);
-          },
-          message);
+        std::visit([&recordPtr](const auto& mess) { recordPtr = std::make_unique<Record<T>>(mess); }, message);
 
-      buffer[i] = std::move(recordPtr);
+        buffer[imported++] = std::move(recordPtr);
+
+      } catch (const Exception& e) {
+        std::visit(
+            [&e](const auto& mess) {
+              WARNING("Warning: " << e.what() << " due parsing data: " << mess.exportMessage());
+            },
+            message);
+      }
     }
 
-    return m_outputQueuePtr->enqueue_bulk(std::make_move_iterator(buffer.begin()), count);
+    if (imported) {
+      return m_outputQueuePtr->enqueue_bulk(std::make_move_iterator(buffer.begin()), imported);
+    } else {
+      return false;
+    }
   }
 
 protected:
-
   void startImpl() override {
-
     INFO("Register metrics for output " << m_name);
 
     metrics::MetricsController::getInstance()->registerMetric("outputs." + m_name + ".send_total",
