@@ -73,7 +73,12 @@ Record<Gelf>::Record(const iqlogger::inputs::journal::Journal::MessageT& message
   Gelf::MessageT gelf(message.getInput());
 
   try {
-    std::visit([&gelf](const auto& value) { gelf.setField("short_message", value); TRACE("MESSAGE=" << value);  }, data.at("MESSAGE"));
+    std::visit(
+        [&gelf](const auto& value) {
+          gelf.setField("short_message", value);
+          TRACE("MESSAGE=" << value);
+        },
+        data.at("MESSAGE"));
   } catch (const std::out_of_range& e) {
     gelf.setField("short_message", message.exportMessage());
   }
@@ -137,6 +142,10 @@ Record<Gelf>::Record(const iqlogger::inputs::tail::Tail::MessageT& message) {
   } catch (const nlohmann::json::exception& e) {
     gelf.setField("short_message", messageStr);
     DEBUG("Warning: " << e.what() << " due parsing data: " << messageStr);
+  } catch (const GelfException& e) {
+    std::ostringstream oss;
+    oss << "Error decode tail message from: " << messageStr << ". Error: " << e.what();
+    throw Exception(oss.str());
   }
 
   gelf.setField("file", message.getFilename());
